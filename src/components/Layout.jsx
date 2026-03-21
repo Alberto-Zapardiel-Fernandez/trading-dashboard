@@ -20,7 +20,8 @@ const NAV = [
     label: 'Análisis',
     hijos: [
       { to: '/grafica', label: 'Análisis técnico' },
-      { to: '/radar', label: 'Radar de vigilancia' }
+      { to: '/radar', label: 'Radar de vigilancia' },
+      { to: '/explorador', label: 'Explorador' }
     ]
   },
   {
@@ -29,6 +30,11 @@ const NAV = [
       { to: '/dca', label: 'DCA VUSA' },
       { to: '/movimientos', label: 'Libro de caja' }
     ]
+  },
+  {
+    label: 'Noticias',
+    to: '/noticias',
+    exact: false
   },
   {
     label: 'Configuración',
@@ -54,14 +60,16 @@ export default function Layout({ children, usuario }) {
 
   return (
     <div className='min-h-screen flex flex-col text-base'>
-      {/* ── Navbar ── */}
       <header className='bg-gray-900 border-b border-gray-800 sticky top-0 z-50'>
-        <div className='max-w-7xl mx-auto px-4 h-14 flex items-center justify-between'>
-          {/* Logo */}
-          <span className='text-yellow-400 font-bold text-lg tracking-tight'>⚡ Trading Dashboard</span>
+        <div className='max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-2'>
+          {/* Logo — solo icono en pantallas ajustadas */}
+          <span className='text-yellow-400 font-bold tracking-tight whitespace-nowrap shrink-0'>
+            <span className='hidden lg:inline text-base'>⚡ Trading Dashboard</span>
+            <span className='lg:hidden text-lg'>⚡</span>
+          </span>
 
           {/* Navegación escritorio */}
-          <nav className='hidden md:flex items-center gap-1'>
+          <nav className='hidden md:flex items-center gap-0.5 flex-1 justify-center'>
             {NAV.map(item =>
               item.to ? (
                 <NavLink
@@ -70,7 +78,7 @@ export default function Layout({ children, usuario }) {
                   end={item.exact}
                   onClick={() => setMenuAbierto(null)}
                   className={({ isActive }) =>
-                    `px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                       isActive ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
                     }`
                   }
@@ -84,18 +92,17 @@ export default function Layout({ children, usuario }) {
                 >
                   <button
                     onClick={() => toggleMenu(item.label)}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                       menuAbierto === item.label ? 'bg-gray-800 text-gray-100' : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
                     }`}
                   >
                     {item.label}
                     <ChevronDown
-                      size={14}
+                      size={13}
                       className={`transition-transform ${menuAbierto === item.label ? 'rotate-180' : ''}`}
                     />
                   </button>
 
-                  {/* Desplegable */}
                   {menuAbierto === item.label && (
                     <div className='absolute top-full left-0 mt-1 bg-gray-900 border border-gray-700 rounded-xl shadow-xl py-1 min-w-52 z-50'>
                       {item.hijos.map(hijo => (
@@ -120,22 +127,21 @@ export default function Layout({ children, usuario }) {
           </nav>
 
           {/* Usuario + logout */}
-          <div className='flex items-center gap-3'>
+          <div className='flex items-center gap-2 shrink-0'>
             <img
               src={usuario.photoURL}
               alt='avatar'
-              className='w-8 h-8 rounded-full ring-2 ring-gray-700'
+              className='w-7 h-7 rounded-full ring-2 ring-gray-700'
             />
-            <span className='text-gray-300 text-sm hidden lg:block'>{usuario.displayName}</span>
+            <span className='text-gray-300 text-sm hidden xl:block truncate max-w-32'>{usuario.displayName}</span>
             <button
               onClick={handleLogout}
               title='Cerrar sesión'
               className='text-gray-500 hover:text-red-400 transition-colors p-1'
             >
-              <LogOut size={16} />
+              <LogOut size={15} />
             </button>
 
-            {/* Botón menú móvil */}
             <button
               onClick={() => setMovil(!movil)}
               className='md:hidden text-gray-400 hover:text-gray-100 p-1'
@@ -145,7 +151,7 @@ export default function Layout({ children, usuario }) {
           </div>
         </div>
 
-        {/* ── Menú móvil ── */}
+        {/* Menú móvil */}
         {movil && (
           <div className='md:hidden border-t border-gray-800 bg-gray-900 px-4 py-3 flex flex-col gap-1'>
             {NAV.map(item =>
@@ -181,7 +187,6 @@ export default function Layout({ children, usuario }) {
         )}
       </header>
 
-      {/* ── Contenido ── */}
       <main className='flex-1 max-w-7xl mx-auto w-full px-4 py-6'>{children}</main>
     </div>
   )

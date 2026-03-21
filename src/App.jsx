@@ -12,6 +12,8 @@ import Radar from './pages/Radar'
 import Layout from './components/Layout'
 import { RadarProvider } from './context/RadarProvider'
 import Configuracion from './pages/Configuracion'
+import Explorador from './pages/Explorador.jsx'
+import Noticias from './pages/Noticias.jsx'
 
 export default function App() {
   const { usuario, cargando } = useAuth()
@@ -69,6 +71,14 @@ export default function App() {
                     <Route
                       path='/configuracion'
                       element={<Configuracion />}
+                    />
+                    <Route
+                      path='/explorador'
+                      element={<Explorador />}
+                    />
+                    <Route
+                      path='/noticias'
+                      element={<Noticias />}
                     />
                   </Routes>
                 </Layout>
