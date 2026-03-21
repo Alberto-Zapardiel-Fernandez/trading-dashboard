@@ -4,7 +4,9 @@
 // - Chat ID por usuario (guardado en Firestore/config)
 // - Silencio nocturno entre 00:00 y 08:00
 // - Mensaje de buenos días a las 08:00 con resumen de cartera y mercado
-// - Alertas solo cuando cambia el estado técnico
+// - Alertas cuando cambia el estado técnico
+// - Alertas de precio fijo: alertaSobre (precio ≥ nivel) y alertaBajo (precio ≤ nivel)
+//   Una vez disparada la alerta se desactiva sola para no repetir
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef } from 'react'
@@ -43,11 +45,7 @@ async function enviarTelegram(chatId, mensaje) {
     await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: mensaje,
-        parse_mode: 'Markdown'
-      })
+      body: JSON.stringify({ chat_id: chatId, text: mensaje, parse_mode: 'Markdown' })
     })
   } catch (err) {
     console.error('[Telegram] Error:', err)
@@ -115,8 +113,10 @@ export function useRadar() {
 
   const memoriaEstados = useRef({})
   const buenosDiasEnviado = useRef(false)
-  // Guardamos los datos en un ref para acceder a ellos dentro del intervalo
   const datosRef = useRef({})
+  // Guardamos los tickers en ref para acceder a ellos dentro del intervalo
+  // sin necesidad de re-crear el intervalo cada vez que cambia un ticker
+  const tickersRef = useRef([])
 
   const chatId = config?.telegramChatId || ''
 
@@ -125,7 +125,9 @@ export function useRadar() {
     if (!usuario) return
     const ref = collection(db, 'users', usuario.uid, COLECCIONES.RADAR)
     const unsub = onSnapshot(ref, snap => {
-      setTickers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setTickers(lista)
+      tickersRef.current = lista
       setCargando(false)
     })
     return unsub
@@ -138,30 +140,25 @@ export function useRadar() {
 
   // ── Intervalo de actualización ────────────────────────────────────────────
   useEffect(() => {
-    console.log('[Radar] useEffect tickers:', tickers.length, '| chatId:', chatId)
     if (tickers.length === 0) return
 
     const actualizarDatos = async () => {
       // ── Buenos días ──────────────────────────────────────────────────────
       if (esHoraBuenosDias() && !buenosDiasEnviado.current && chatId) {
         buenosDiasEnviado.current = true
-
         const sp500 = await obtenerPrecio('^GSPC')
-
         const lineasCartera = tickers
           .map(t => {
             const d = datosRef.current[t.symbol]
             return `🔹 *${t.symbol}*: ${d?.precioActual?.toFixed(2) ?? '...'}`
           })
           .join('\n')
-
         const fecha = new Date().toLocaleDateString('es-ES', {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
           day: 'numeric'
         })
-
         const mensaje = [
           `☀️ *Trading Dashboard — Buenos días*`,
           `📅 ${fecha}`,
@@ -174,14 +171,11 @@ export function useRadar() {
           ``,
           `🚀 Radar vigilando ${tickers.length} tickers.`
         ].join('\n')
-
         await enviarTelegram(chatId, mensaje)
       }
-
-      // Resetear flag a las 09:00 para el día siguiente
       if (new Date().getHours() === 9) buenosDiasEnviado.current = false
 
-      // ── Actualización técnica ─────────────────────────────────────────
+      // ── Actualización técnica + alertas de precio fijo ────────────────
       const nuevosDatos = {}
       await Promise.allSettled(
         tickers.map(async ticker => {
@@ -192,11 +186,34 @@ export function useRadar() {
           if (!estado) return
 
           nuevosDatos[ticker.symbol] = estado
+          const precio = estado.precioActual
+
+          // ── Alerta de estado técnico (comportamiento existente) ────────
           const anterior = memoriaEstados.current[ticker.symbol]
           if (estado.estado !== anterior && estado.estado !== 'NEUTRAL' && chatId) {
             const msg = MENSAJES_ESTADO[estado.estado]
             if (msg) await enviarTelegram(chatId, msg(ticker.symbol, estado.rsi))
             memoriaEstados.current[ticker.symbol] = estado.estado
+          }
+
+          // ── Alerta precio ≥ nivel (alertaSobre) ───────────────────────
+          // Solo dispara si está definida y el precio la ha alcanzado
+          if (ticker.alertaSobre != null && precio >= ticker.alertaSobre) {
+            const msg = `🔔 *${ticker.symbol}* ha superado el nivel *${ticker.alertaSobre}*\nPrecio actual: *${precio.toFixed(2)}*`
+            await enviarTelegram(chatId, msg)
+            // Desactivar la alerta tras dispararse — evita spam en cada ciclo
+            if (usuario) {
+              await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.RADAR, ticker.id), { alertaSobre: null })
+            }
+          }
+
+          // ── Alerta precio ≤ nivel (alertaBajo) ────────────────────────
+          if (ticker.alertaBajo != null && precio <= ticker.alertaBajo) {
+            const msg = `🔔 *${ticker.symbol}* ha bajado del nivel *${ticker.alertaBajo}*\nPrecio actual: *${precio.toFixed(2)}*`
+            await enviarTelegram(chatId, msg)
+            if (usuario) {
+              await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.RADAR, ticker.id), { alertaBajo: null })
+            }
           }
         })
       )
@@ -207,16 +224,18 @@ export function useRadar() {
     actualizarDatos()
     const intervalo = setInterval(actualizarDatos, INTERVALO_MS)
     return () => clearInterval(intervalo)
-  }, [tickers, chatId])
+  }, [tickers, chatId, usuario])
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
-  const añadirTicker = async (symbol, nombre = '', stop = null, target = null) => {
+  const añadirTicker = async (symbol, nombre = '') => {
     if (!usuario) return
     await addDoc(collection(db, 'users', usuario.uid, COLECCIONES.RADAR), {
       symbol: symbol.toUpperCase(),
       nombre,
-      stop,
-      target
+      stop: null,
+      target: null,
+      alertaSobre: null, // precio ≥ nivel → alerta
+      alertaBajo: null // precio ≤ nivel → alerta
     })
   }
 
@@ -230,5 +249,22 @@ export function useRadar() {
     await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.RADAR, id), { stop, target })
   }
 
-  return { tickers, datos, cargando, añadirTicker, eliminarTicker, actualizarStopTarget }
+  // ── NUEVO: guardar alertas de precio fijo ─────────────────────────────────
+  const actualizarAlertas = async (id, alertaSobre, alertaBajo) => {
+    if (!usuario) return
+    await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.RADAR, id), {
+      alertaSobre: alertaSobre !== '' ? parseFloat(alertaSobre) : null,
+      alertaBajo: alertaBajo !== '' ? parseFloat(alertaBajo) : null
+    })
+  }
+
+  return {
+    tickers,
+    datos,
+    cargando,
+    añadirTicker,
+    eliminarTicker,
+    actualizarStopTarget,
+    actualizarAlertas // ── NUEVO
+  }
 }
