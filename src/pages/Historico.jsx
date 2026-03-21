@@ -7,7 +7,14 @@ import { COLECCIONES } from '../config/constants'
 import { exportarOperacionesCSV, exportarOperacionesExcel } from '../services/exportutils.js'
 import { useModoPrivado } from '../context/ModoPrivadoContext'
 
-// ── Formulario para registrar una operación cerrada manualmente ──
+// ── Estilos reutilizables de inputs ──────────────────────────────────────────
+const inputBase = 'bg-gray-800 border rounded-lg px-3 py-2 outline-none w-full'
+const inputNeutral = `${inputBase} border-gray-700 text-gray-200 focus:border-blue-500`
+const inputAzul = `${inputBase} border-blue-700 text-blue-300 focus:border-blue-500`
+const inputRojo = `${inputBase} border-red-800 text-red-300 focus:border-red-500`
+const inputVerde = `${inputBase} border-green-800 text-green-300 focus:border-green-500`
+
+// ── Formulario de CREACIÓN ────────────────────────────────────────────────────
 function FormularioOperacion({ onGuardar, onCancelar }) {
   const [form, setForm] = useState({
     ticker: '',
@@ -22,7 +29,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
     fxCompra: '1',
     notas: ''
   })
-
   const set = (campo, valor) => setForm(f => ({ ...f, [campo]: valor }))
 
   const handleGuardar = () => {
@@ -48,16 +54,9 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
     })
   }
 
-  const inputBase = 'bg-gray-800 border rounded-lg px-3 py-2 outline-none w-full'
-  const inputNeutral = `${inputBase} border-gray-700 text-gray-200 focus:border-blue-500`
-  const inputAzul = `${inputBase} border-blue-700 text-blue-300 focus:border-blue-500`
-  const inputRojo = `${inputBase} border-red-800 text-red-300 focus:border-red-500`
-  const inputVerde = `${inputBase} border-green-800 text-green-300 focus:border-green-500`
-
   return (
     <div className='bg-gray-900 border border-blue-800 rounded-xl p-5 mb-6'>
       <h3 className='text-base font-bold text-blue-400 mb-4'>Registrar operación cerrada</h3>
-
       <div className='grid grid-cols-2 sm:grid-cols-3 gap-4'>
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Ticker *</label>
@@ -68,7 +67,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             className={inputNeutral}
           />
         </div>
-
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Moneda</label>
           <select
@@ -80,7 +78,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             <option value='USD'>USD</option>
           </select>
         </div>
-
         {form.moneda === 'USD' && (
           <div className='flex flex-col gap-1'>
             <label className='text-gray-400 text-sm'>EUR/USD día compra</label>
@@ -93,7 +90,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             />
           </div>
         )}
-
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Fecha apertura</label>
           <input
@@ -103,7 +99,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             className={inputNeutral}
           />
         </div>
-
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Fecha cierre</label>
           <input
@@ -113,7 +108,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             className={inputNeutral}
           />
         </div>
-
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Precio entrada *</label>
           <input
@@ -124,7 +118,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             className={inputAzul}
           />
         </div>
-
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Precio cierre *</label>
           <input
@@ -135,7 +128,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             className={inputAzul}
           />
         </div>
-
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Nº acciones (broker)</label>
           <input
@@ -146,7 +138,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             className={inputNeutral}
           />
         </div>
-
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Inversión real € (broker)</label>
           <input
@@ -157,7 +148,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             className={inputNeutral}
           />
         </div>
-
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm font-medium'>P&L real € (broker) *</label>
           <input
@@ -169,7 +159,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
             className={parseFloat(form.pnlEuros) >= 0 ? inputVerde : inputRojo}
           />
         </div>
-
         <div className='flex flex-col gap-1 sm:col-span-2'>
           <label className='text-gray-400 text-sm'>Notas</label>
           <input
@@ -180,7 +169,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           />
         </div>
       </div>
-
       <div className='flex gap-3 mt-4'>
         <button
           onClick={handleGuardar}
@@ -199,24 +187,245 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
   )
 }
 
-// ── Página principal del Histórico ──
+// ── Formulario de EDICIÓN — prefilled con los datos de la operación ───────────
+// Funciona tanto para abiertas (sin precioCierre/pnlEuros) como cerradas
+function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
+  const [form, setForm] = useState({
+    ticker: operacion.ticker ?? '',
+    moneda: operacion.moneda ?? 'EUR',
+    fechaApertura: operacion.fechaApertura ?? '',
+    fechaCierre: operacion.fechaCierre ?? '',
+    precioEntrada: operacion.precioEntrada ?? '',
+    precioCierre: operacion.precioCierre ?? '',
+    stopLoss: operacion.stopLoss ?? '',
+    numAcciones: operacion.numAcciones ?? '',
+    inversion: operacion.inversion ?? '',
+    pnlEuros: operacion.pnlEuros ?? '',
+    fxCompra: operacion.fxCompra ?? '1',
+    notas: operacion.notas ?? ''
+  })
+
+  const set = (campo, valor) => setForm(f => ({ ...f, [campo]: valor }))
+  const esCerrada = operacion.estado === 'CERRADA'
+
+  const handleGuardar = () => {
+    if (!form.ticker || !form.precioEntrada) {
+      alert('Ticker y precio de entrada son obligatorios')
+      return
+    }
+    // Construimos solo los campos que aplican según el estado
+    const datos = {
+      ticker: form.ticker.toUpperCase(),
+      moneda: form.moneda,
+      fechaApertura: form.fechaApertura || null,
+      precioEntrada: parseFloat(form.precioEntrada) || 0,
+      numAcciones: parseFloat(form.numAcciones) || 0,
+      inversion: parseFloat(form.inversion) || 0,
+      fxCompra: parseFloat(form.fxCompra) || 1,
+      notas: form.notas
+    }
+    if (esCerrada) {
+      datos.fechaCierre = form.fechaCierre || null
+      datos.precioCierre = parseFloat(form.precioCierre) || 0
+      datos.pnlEuros = parseFloat(form.pnlEuros) || 0
+    } else {
+      datos.stopLoss = parseFloat(form.stopLoss) || null
+    }
+    onGuardar(datos)
+  }
+
+  return (
+    <div className='bg-gray-900 border border-yellow-800 rounded-xl p-5 mt-3'>
+      <h3 className='text-base font-bold text-yellow-400 mb-4'>
+        Editando {operacion.ticker}
+        <span className='text-gray-500 font-normal text-sm ml-2'>— {esCerrada ? 'operación cerrada' : 'posición abierta'}</span>
+      </h3>
+
+      <div className='grid grid-cols-2 sm:grid-cols-3 gap-4'>
+        {/* Ticker */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-sm'>Ticker</label>
+          <input
+            value={form.ticker}
+            onChange={e => set('ticker', e.target.value)}
+            className={inputNeutral}
+          />
+        </div>
+
+        {/* Moneda */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-sm'>Moneda</label>
+          <select
+            value={form.moneda}
+            onChange={e => set('moneda', e.target.value)}
+            className={inputNeutral}
+          >
+            <option value='EUR'>EUR</option>
+            <option value='USD'>USD</option>
+          </select>
+        </div>
+
+        {/* FX solo si USD */}
+        {form.moneda === 'USD' && (
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-400 text-sm'>EUR/USD día compra</label>
+            <input
+              type='number'
+              step='0.0001'
+              value={form.fxCompra}
+              onChange={e => set('fxCompra', e.target.value)}
+              className={inputNeutral}
+            />
+          </div>
+        )}
+
+        {/* Fecha apertura */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-sm'>Fecha apertura</label>
+          <input
+            type='date'
+            value={form.fechaApertura}
+            onChange={e => set('fechaApertura', e.target.value)}
+            className={inputNeutral}
+          />
+        </div>
+
+        {/* Fecha cierre — solo cerradas */}
+        {esCerrada && (
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-400 text-sm'>Fecha cierre</label>
+            <input
+              type='date'
+              value={form.fechaCierre}
+              onChange={e => set('fechaCierre', e.target.value)}
+              className={inputNeutral}
+            />
+          </div>
+        )}
+
+        {/* Precio entrada */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-sm'>Precio entrada</label>
+          <input
+            type='number'
+            step='0.001'
+            value={form.precioEntrada}
+            onChange={e => set('precioEntrada', e.target.value)}
+            className={inputAzul}
+          />
+        </div>
+
+        {/* Precio cierre — solo cerradas */}
+        {esCerrada && (
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-400 text-sm'>Precio cierre</label>
+            <input
+              type='number'
+              step='0.001'
+              value={form.precioCierre}
+              onChange={e => set('precioCierre', e.target.value)}
+              className={inputAzul}
+            />
+          </div>
+        )}
+
+        {/* Stop Loss — solo abiertas */}
+        {!esCerrada && (
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-400 text-sm'>Stop Loss</label>
+            <input
+              type='number'
+              step='0.001'
+              value={form.stopLoss}
+              onChange={e => set('stopLoss', e.target.value)}
+              className={inputRojo}
+            />
+          </div>
+        )}
+
+        {/* Nº acciones */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-sm'>Nº acciones</label>
+          <input
+            type='number'
+            step='0.0001'
+            value={form.numAcciones}
+            onChange={e => set('numAcciones', e.target.value)}
+            className={inputNeutral}
+          />
+        </div>
+
+        {/* Inversión */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-sm'>Inversión real € (broker)</label>
+          <input
+            type='number'
+            step='0.01'
+            value={form.inversion}
+            onChange={e => set('inversion', e.target.value)}
+            className={inputNeutral}
+          />
+        </div>
+
+        {/* P&L real — solo cerradas */}
+        {esCerrada && (
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-400 text-sm font-medium'>P&L real € (broker)</label>
+            <input
+              type='number'
+              step='0.01'
+              value={form.pnlEuros}
+              onChange={e => set('pnlEuros', e.target.value)}
+              className={parseFloat(form.pnlEuros) >= 0 ? inputVerde : inputRojo}
+            />
+          </div>
+        )}
+
+        {/* Notas */}
+        <div className='flex flex-col gap-1 sm:col-span-2'>
+          <label className='text-gray-400 text-sm'>Notas</label>
+          <input
+            value={form.notas}
+            onChange={e => set('notas', e.target.value)}
+            placeholder='Estrategia, motivo de entrada...'
+            className={inputNeutral}
+          />
+        </div>
+      </div>
+
+      <div className='flex gap-3 mt-4'>
+        <button
+          onClick={handleGuardar}
+          className='bg-yellow-600 hover:bg-yellow-500 text-black font-bold
+                     py-2 px-6 rounded-xl transition-colors'
+        >
+          Guardar cambios
+        </button>
+        <button
+          onClick={onCancelar}
+          className='text-gray-400 hover:text-gray-200 py-2 px-4 transition-colors'
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Página principal ──────────────────────────────────────────────────────────
 export default function Historico() {
   const { usuario } = useAuth()
   const { config } = useConfig()
+  const { ocultar } = useModoPrivado()
   const [operaciones, setOperaciones] = useState([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
-  const { ocultar } = useModoPrivado()
+  // ID de la operación que está siendo editada (null = ninguna)
+  const [editandoId, setEditandoId] = useState(null)
 
   useEffect(() => {
     if (!usuario) return
     const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.OPERACIONES), snap => {
-      const ops = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => {
-          const fa = a.fechaApertura || ''
-          const fb = b.fechaApertura || ''
-          return fb.localeCompare(fa)
-        })
+      const ops = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.fechaApertura || '').localeCompare(a.fechaApertura || ''))
       setOperaciones(ops)
     })
     return unsub
@@ -225,6 +434,12 @@ export default function Historico() {
   const guardarOperacion = async datos => {
     await addDoc(collection(db, 'users', usuario.uid, COLECCIONES.OPERACIONES), datos)
     setMostrarFormulario(false)
+  }
+
+  // Guarda los cambios de edición en Firestore
+  const guardarEdicion = async (id, datos) => {
+    await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.OPERACIONES, id), datos)
+    setEditandoId(null)
   }
 
   const actualizarPrecio = async (op, nuevoPrecio) => {
@@ -267,38 +482,35 @@ export default function Historico() {
       {/* ── Cabecera ── */}
       <div className='flex items-center justify-between flex-wrap gap-3'>
         <h2 className='text-lg font-bold text-gray-200'>Histórico de operaciones</h2>
-
-        {/* ── NUEVO: grupo de botones — Exportar + Registrar ── */}
         <div className='flex items-center gap-2 flex-wrap'>
-          {/* Botones de exportación — solo visibles si hay operaciones */}
           {operaciones.length > 0 && (
             <>
               <button
                 onClick={() => exportarOperacionesCSV(operaciones)}
-                className='border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-gray-200 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
+                className='border border-gray-600 hover:border-gray-400 text-gray-400
+                           hover:text-gray-200 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
                 title='Descargar todas las operaciones como CSV'
               >
                 ↓ CSV
               </button>
               <button
                 onClick={() => exportarOperacionesExcel(operaciones)}
-                className='border border-green-800 hover:border-green-600 text-green-600 hover:text-green-400 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
+                className='border border-green-800 hover:border-green-600 text-green-600
+                           hover:text-green-400 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
                 title='Descargar todas las operaciones como Excel'
               >
                 ↓ Excel
               </button>
             </>
           )}
-
-          {/* Botón registrar — igual que antes */}
           <button
             onClick={() => setMostrarFormulario(!mostrarFormulario)}
-            className='bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-5 rounded-xl transition-colors text-sm'
+            className='bg-blue-600 hover:bg-blue-700 text-white font-medium
+                       py-2 px-5 rounded-xl transition-colors text-sm'
           >
             {mostrarFormulario ? 'Cancelar' : '+ Registrar operación'}
           </button>
         </div>
-        {/* ── FIN NUEVO ── */}
       </div>
 
       {/* ── Formulario de registro ── */}
@@ -309,7 +521,6 @@ export default function Historico() {
         />
       )}
 
-      {/* ── Mensaje si no hay operaciones ── */}
       {operaciones.length === 0 && (
         <p className='text-gray-500 text-center py-12'>No hay operaciones registradas. Usa el botón de arriba para añadir la primera.</p>
       )}
@@ -353,6 +564,8 @@ export default function Historico() {
                     <p className='text-gray-500 text-sm'>Latente</p>
                   </div>
                 </div>
+
+                {/* Controles */}
                 <div className='flex items-center gap-3 mt-3 pt-3 border-t border-gray-800 flex-wrap'>
                   <input
                     type='number'
@@ -360,21 +573,41 @@ export default function Historico() {
                     placeholder='Precio actual'
                     defaultValue={op.precioActual || ''}
                     onBlur={e => actualizarPrecio(op, e.target.value)}
-                    className='bg-gray-800 border border-yellow-700 rounded-lg px-3 py-1.5 text-yellow-400 text-sm w-36 outline-none'
+                    className='bg-gray-800 border border-yellow-700 rounded-lg px-3 py-1.5
+                               text-yellow-400 text-sm w-36 outline-none'
                   />
                   <button
                     onClick={() => cerrarOperacion(op)}
-                    className='bg-green-700 hover:bg-green-600 text-white text-sm px-4 py-1.5 rounded-lg transition-colors'
+                    className='bg-green-700 hover:bg-green-600 text-white text-sm
+                               px-4 py-1.5 rounded-lg transition-colors'
                   >
                     Cerrar operación
                   </button>
+                  {/* ── NUEVO: botón editar ── */}
+                  <button
+                    onClick={() => setEditandoId(editandoId === op.id ? null : op.id)}
+                    className='text-yellow-600 hover:text-yellow-400 text-sm px-2 py-1.5 transition-colors'
+                    title='Editar operación'
+                  >
+                    ✎ Editar
+                  </button>
                   <button
                     onClick={() => eliminarOperacion(op)}
-                    className='text-red-600 hover:text-red-400 text-sm px-2 py-1.5 transition-colors ml-auto'
+                    className='text-red-600 hover:text-red-400 text-sm px-2 py-1.5
+                               transition-colors ml-auto'
                   >
                     Eliminar
                   </button>
                 </div>
+
+                {/* ── NUEVO: formulario de edición inline ── */}
+                {editandoId === op.id && (
+                  <FormularioEdicion
+                    operacion={op}
+                    onGuardar={datos => guardarEdicion(op.id, datos)}
+                    onCancelar={() => setEditandoId(null)}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -415,6 +648,7 @@ export default function Historico() {
                       {op.notas && <span className='text-gray-600 italic'>{op.notas}</span>}
                     </div>
                   </div>
+
                   <div className='flex items-center gap-4'>
                     <div className='text-right'>
                       <p className={`text-2xl font-bold ${(op.pnlEuros || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -426,15 +660,36 @@ export default function Historico() {
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => eliminarOperacion(op)}
-                      className='text-red-800 hover:text-red-500 text-sm px-2 py-1 transition-colors'
-                      title='Eliminar operación'
-                    >
-                      ✕
-                    </button>
+                    <div className='flex flex-col gap-1 items-end'>
+                      {/* ── NUEVO: botón editar ── */}
+                      <button
+                        onClick={() => setEditandoId(editandoId === op.id ? null : op.id)}
+                        className='text-yellow-600 hover:text-yellow-400 text-sm
+                                   px-2 py-1 transition-colors'
+                        title='Editar operación'
+                      >
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => eliminarOperacion(op)}
+                        className='text-red-800 hover:text-red-500 text-sm
+                                   px-2 py-1 transition-colors'
+                        title='Eliminar operación'
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {/* ── NUEVO: formulario de edición inline ── */}
+                {editandoId === op.id && (
+                  <FormularioEdicion
+                    operacion={op}
+                    onGuardar={datos => guardarEdicion(op.id, datos)}
+                    onCancelar={() => setEditandoId(null)}
+                  />
+                )}
               </div>
             ))}
           </div>
