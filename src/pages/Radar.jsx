@@ -24,10 +24,14 @@ function EstadoBadge({ estado }) {
 }
 
 // ── Fila escritorio ───────────────────────────────────────────────────────────
-function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActualizarAlertas }) {
+function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActualizarAlertas, onActualizarNota }) {
   const d = datos[ticker.symbol]
   const [editandoSLTP, setEditandoSLTP] = useState(false)
   const [editandoAlertas, setEditandoAlertas] = useState(false)
+  // ── NUEVO: estado local para editar la nota ──
+  const [editandoNota, setEditandoNota] = useState(false)
+  const [nota, setNota] = useState(ticker.nota ?? '')
+
   const [stop, setStop] = useState(ticker.stop ?? '')
   const [target, setTarget] = useState(ticker.target ?? '')
   const [sobre, setSobre] = useState(ticker.alertaSobre ?? '')
@@ -43,6 +47,12 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
     setEditandoAlertas(false)
   }
 
+  // ── NUEVO: guarda la nota en Firestore ──
+  const guardarNota = () => {
+    onActualizarNota(ticker.id, nota)
+    setEditandoNota(false)
+  }
+
   const precio = d?.precioActual
   const tocaStop = precio && ticker.stop && precio <= ticker.stop
   const tocaTarget = precio && ticker.target && precio >= ticker.target
@@ -53,9 +63,49 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
       className={`border-b border-gray-800 last:border-0 hover:bg-gray-800/30
                     transition-colors ${colorFila}`}
     >
+      {/* Ticker + nombre + nota */}
       <td className='p-4'>
         <p className='font-bold text-cyan-400'>{ticker.symbol}</p>
         {ticker.nombre && <p className='text-gray-500 text-xs mt-0.5'>{ticker.nombre}</p>}
+        {/* ── NUEVO: nota visible + editable ── */}
+        {editandoNota ? (
+          <div className='flex items-center gap-2 mt-1'>
+            <input
+              type='text'
+              value={nota}
+              onChange={e => setNota(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') guardarNota()
+                if (e.key === 'Escape') setEditandoNota(false)
+              }}
+              placeholder='Añadir nota...'
+              autoFocus
+              className='bg-gray-800 border border-gray-600 rounded px-2 py-1
+                         text-gray-300 text-xs w-48 outline-none focus:border-yellow-600'
+            />
+            <button
+              onClick={guardarNota}
+              className='text-xs text-yellow-500 hover:text-yellow-400'
+            >
+              ✓
+            </button>
+            <button
+              onClick={() => setEditandoNota(false)}
+              className='text-xs text-gray-600 hover:text-gray-400'
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <p
+            onClick={() => setEditandoNota(true)}
+            className='text-gray-600 text-xs mt-1 cursor-pointer hover:text-gray-400
+                       transition-colors italic'
+            title='Clic para editar nota'
+          >
+            {ticker.nota ? `📝 ${ticker.nota}` : '+ nota'}
+          </p>
+        )}
       </td>
 
       <td className='p-4 text-right'>
@@ -72,10 +122,11 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
 
       <td className='p-4 text-right text-sm'>
         {d?.sma50 != null ? (
-          <div className='flex flex-col items-end gap-0.5'>
+          <span>
             <span className='text-yellow-400'>{d.sma50.toFixed(2)}</span>
+            <span className='text-gray-600'> / </span>
             <span className='text-blue-400'>{d.sma200?.toFixed(2) ?? '—'}</span>
-          </div>
+          </span>
         ) : (
           <span className='text-gray-600'>—</span>
         )}
@@ -125,7 +176,7 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
         )}
       </td>
 
-      {/* ── Alertas de precio fijo ── */}
+      {/* Alertas precio */}
       <td className='p-4 text-right text-sm'>
         {editandoAlertas ? (
           <div className='flex flex-col gap-1 items-end'>
@@ -157,7 +208,7 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
           <div
             className='flex flex-col items-end gap-0.5 cursor-pointer'
             onClick={() => setEditandoAlertas(true)}
-            title='Clic para configurar alertas de precio'
+            title='Clic para configurar alertas'
           >
             <span className={ticker.alertaSobre != null ? 'text-orange-400/80' : 'text-gray-700'}>≥ {ticker.alertaSobre ?? '—'}</span>
             <span className={ticker.alertaBajo != null ? 'text-blue-400/80' : 'text-gray-700'}>≤ {ticker.alertaBajo ?? '—'}</span>
@@ -180,10 +231,14 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
 }
 
 // ── Tarjeta móvil ─────────────────────────────────────────────────────────────
-function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActualizarAlertas }) {
+function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActualizarAlertas, onActualizarNota }) {
   const d = datos[ticker.symbol]
   const [editandoSLTP, setEditandoSLTP] = useState(false)
   const [editandoAlertas, setEditandoAlertas] = useState(false)
+  // ── NUEVO ──
+  const [editandoNota, setEditandoNota] = useState(false)
+  const [nota, setNota] = useState(ticker.nota ?? '')
+
   const [stop, setStop] = useState(ticker.stop ?? '')
   const [target, setTarget] = useState(ticker.target ?? '')
   const [sobre, setSobre] = useState(ticker.alertaSobre ?? '')
@@ -197,6 +252,12 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
   const guardarAlertas = () => {
     onActualizarAlertas(ticker.id, sobre, bajo)
     setEditandoAlertas(false)
+  }
+
+  // ── NUEVO ──
+  const guardarNota = () => {
+    onActualizarNota(ticker.id, nota)
+    setEditandoNota(false)
   }
 
   const precio = d?.precioActual
@@ -214,6 +275,44 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
         <div>
           <span className='font-bold text-cyan-400 text-base'>{ticker.symbol}</span>
           {ticker.nombre && <p className='text-gray-500 text-xs mt-0.5'>{ticker.nombre}</p>}
+          {/* ── NUEVO: nota visible + editable ── */}
+          {editandoNota ? (
+            <div className='flex items-center gap-2 mt-1'>
+              <input
+                type='text'
+                value={nota}
+                onChange={e => setNota(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') guardarNota()
+                  if (e.key === 'Escape') setEditandoNota(false)
+                }}
+                placeholder='Añadir nota...'
+                autoFocus
+                className='bg-gray-800 border border-gray-600 rounded px-2 py-1
+                           text-gray-300 text-xs w-44 outline-none focus:border-yellow-600'
+              />
+              <button
+                onClick={guardarNota}
+                className='text-xs text-yellow-500 hover:text-yellow-400'
+              >
+                ✓
+              </button>
+              <button
+                onClick={() => setEditandoNota(false)}
+                className='text-xs text-gray-600 hover:text-gray-400'
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <p
+              onClick={() => setEditandoNota(true)}
+              className='text-gray-600 text-xs mt-1 cursor-pointer hover:text-gray-400
+                         transition-colors italic'
+            >
+              {ticker.nota ? `📝 ${ticker.nota}` : '+ nota'}
+            </p>
+          )}
         </div>
         <div className='flex items-center gap-3'>
           {d && <span className='text-white font-bold text-lg'>{d.precioActual.toFixed(2)}</span>}
@@ -288,7 +387,7 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
         </div>
       )}
 
-      {/* ── Fila 4: Alertas de precio fijo ── */}
+      {/* Fila 4: alertas de precio */}
       {editandoAlertas ? (
         <div className='flex gap-2 flex-wrap items-end'>
           <div className='flex flex-col gap-1'>
@@ -325,7 +424,7 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
         <div
           className='flex gap-4 cursor-pointer'
           onClick={() => setEditandoAlertas(true)}
-          title='Toca para configurar alertas de precio'
+          title='Toca para configurar alertas'
         >
           <span className={`text-sm ${ticker.alertaSobre != null ? 'text-orange-400/80' : 'text-gray-700'}`}>🔔 ≥ {ticker.alertaSobre ?? '—'}</span>
           <span className={`text-sm ${ticker.alertaBajo != null ? 'text-blue-400/80' : 'text-gray-700'}`}>🔔 ≤ {ticker.alertaBajo ?? '—'}</span>
@@ -338,7 +437,16 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
 
 // ── Página principal ──────────────────────────────────────────────────────────
 export default function Radar() {
-  const { tickers, datos, cargando, añadirTicker, eliminarTicker, actualizarStopTarget, actualizarAlertas } = useRadarContext()
+  const {
+    tickers,
+    datos,
+    cargando,
+    añadirTicker,
+    eliminarTicker,
+    actualizarStopTarget,
+    actualizarAlertas,
+    actualizarNota // ── NUEVO
+  } = useRadarContext()
 
   const [input, setInput] = useState('')
   const [sugerencias, setSugerencias] = useState([])
@@ -457,6 +565,7 @@ export default function Radar() {
                 onEliminar={eliminarTicker}
                 onActualizarStopTarget={actualizarStopTarget}
                 onActualizarAlertas={actualizarAlertas}
+                onActualizarNota={actualizarNota}
               />
             ))}
           </div>
@@ -478,7 +587,6 @@ export default function Radar() {
                     <span className='text-blue-400'>SMA200</span>
                   </th>
                   <th className='text-right  text-gray-400 p-4 font-medium'>SL / TP</th>
-                  {/* ── NUEVO ── */}
                   <th className='text-right  text-gray-400 p-4 font-medium'>🔔 Alertas precio</th>
                   <th className='text-center text-gray-400 p-4 font-medium'>Estado</th>
                   <th className='p-4'></th>
@@ -493,6 +601,7 @@ export default function Radar() {
                     onEliminar={eliminarTicker}
                     onActualizarStopTarget={actualizarStopTarget}
                     onActualizarAlertas={actualizarAlertas}
+                    onActualizarNota={actualizarNota}
                   />
                 ))}
               </tbody>

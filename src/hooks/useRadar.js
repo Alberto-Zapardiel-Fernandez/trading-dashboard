@@ -257,6 +257,12 @@ export function useRadar() {
       alertaBajo: alertaBajo !== '' ? parseFloat(alertaBajo) : null
     })
   }
+  const actualizarNota = async (id, nota) => {
+    if (!usuario) return
+    await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.RADAR, id), {
+      nota: nota.trim() || null
+    })
+  }
 
   return {
     tickers,
@@ -265,6 +271,7 @@ export function useRadar() {
     añadirTicker,
     eliminarTicker,
     actualizarStopTarget,
-    actualizarAlertas // ── NUEVO
+    actualizarAlertas,
+    actualizarNota
   }
 }
