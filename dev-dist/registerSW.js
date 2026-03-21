@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/trading-dashboard/dev-sw.js?dev-sw', { scope: '/trading-dashboard/', type: 'classic' })

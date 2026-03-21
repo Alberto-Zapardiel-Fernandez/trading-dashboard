@@ -1,16 +1,45 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es" style="font-size: 14px">
 
 <head>
   <meta charset="UTF-8" />
+
+  <!-- Viewport responsive -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Tamaño de fuente base del proyecto -->
+  <style>
+    html {
+      font-size: 14px;
+    }
+  </style>
+
+  <!-- ==================== META TAGS PWA ==================== -->
+
+  <!-- Color de la barra de estado en Android/Chrome -->
+  <meta name="theme-color" content="#0d1117" />
+
+  <!-- Descripción para motores de búsqueda -->
+  <meta name="description" content="Panel personal de trading e inversiones" />
+
+  <!-- iOS: permite añadir a pantalla de inicio como app nativa -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Trading" />
+
+  <!-- Icono para iOS (Apple no usa el manifest para esto) -->
+  <link rel="apple-touch-icon" href="/trading-dashboard/icons/apple-touch-icon.png" />
+
+  <!-- Favicon estándar -->
+  <link rel="icon" type="image/x-icon" href="/trading-dashboard/icons/favicon.ico" />
+
+  <!-- ========================================================= -->
+
   <title>Trading Dashboard</title>
 </head>
 
 <body>
-  <div id="root"></div>
-
-  <!-- ↓ AÑADIR ESTO: recupera la ruta guardada por el 404.html -->
+  <div id="root"></div><!-- ↓ AÑADIR ESTO: recupera la ruta guardada por el 404.html -->
   <script>
     (function () {
       var ruta = sessionStorage.getItem('rutaRedirigida');
@@ -22,7 +51,6 @@
     })();
   </script>
   <!-- ↑ FIN DEL AÑADIDO -->
-
   <script type="module" src="/src/main.jsx"></script>
 </body>
 

@@ -5,6 +5,8 @@ import { LogOut, ChevronDown, Menu, X, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 // ── NUEVO: hook del modo privado ──
 import { useModoPrivado } from '../context/ModoPrivadoContext'
+// ── NUEVO PWA: botón de instalación de la app ──
+import BotonInstalarPWA from './BotonInstalarPWA'
 
 const NAV = [
   { label: 'Dashboard', to: '/', exact: true },
@@ -147,6 +149,9 @@ export default function Layout({ children, usuario }) {
               className='w-7 h-7 rounded-full ring-2 ring-gray-700'
             />
             <span className='text-gray-300 text-sm hidden xl:block truncate max-w-32'>{usuario.displayName}</span>
+
+            {/* ── NUEVO PWA: botón instalar app — solo visible cuando el navegador lo permite ── */}
+            <BotonInstalarPWA />
 
             {/* ── NUEVO: toggle modo privado ── */}
             <button
