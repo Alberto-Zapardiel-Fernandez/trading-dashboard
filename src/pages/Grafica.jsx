@@ -103,6 +103,11 @@ export default function Grafica() {
 
   return (
     <div className='flex flex-col gap-5 py-4'>
+      {/* ── Cabecera ── */}
+      <div>
+        <h1 className='text-2xl font-bold text-white'>Análisis</h1>
+        <p className='text-gray-500 text-sm mt-1'>Busca cualquier ticker para ver su gráfica con indicadores</p>
+      </div>
       {/* ── Controles ── */}
       <div className='flex items-center gap-3 flex-wrap'>
         {/* Buscador con autocompletado */}

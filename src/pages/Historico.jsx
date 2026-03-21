@@ -4,6 +4,7 @@ import { db } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { useConfig } from '../hooks/useConfig'
 import { COLECCIONES } from '../config/constants'
+import { exportarOperacionesCSV, exportarOperacionesExcel } from '../services/exportutils.js'
 
 // ── Formulario para registrar una operación cerrada manualmente ──
 function FormularioOperacion({ onGuardar, onCancelar }) {
@@ -37,7 +38,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
       precioCierre: parseFloat(form.precioCierre),
       numAcciones: parseFloat(form.numAcciones) || 0,
       inversion: parseFloat(form.inversion) || 0,
-      // P&L real del broker — no se recalcula
       pnlEuros: parseFloat(form.pnlEuros) || 0,
       fxCompra: parseFloat(form.fxCompra) || 1,
       notas: form.notas,
@@ -47,7 +47,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
     })
   }
 
-  // Estilos reutilizables para inputs
   const inputBase = 'bg-gray-800 border rounded-lg px-3 py-2 outline-none w-full'
   const inputNeutral = `${inputBase} border-gray-700 text-gray-200 focus:border-blue-500`
   const inputAzul = `${inputBase} border-blue-700 text-blue-300 focus:border-blue-500`
@@ -59,7 +58,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
       <h3 className='text-base font-bold text-blue-400 mb-4'>Registrar operación cerrada</h3>
 
       <div className='grid grid-cols-2 sm:grid-cols-3 gap-4'>
-        {/* Ticker */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Ticker *</label>
           <input
@@ -70,7 +68,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           />
         </div>
 
-        {/* Moneda */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Moneda</label>
           <select
@@ -83,7 +80,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           </select>
         </div>
 
-        {/* FX Compra — solo visible si es USD */}
         {form.moneda === 'USD' && (
           <div className='flex flex-col gap-1'>
             <label className='text-gray-400 text-sm'>EUR/USD día compra</label>
@@ -97,7 +93,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           </div>
         )}
 
-        {/* Fecha apertura */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Fecha apertura</label>
           <input
@@ -108,7 +103,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           />
         </div>
 
-        {/* Fecha cierre */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Fecha cierre</label>
           <input
@@ -119,7 +113,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           />
         </div>
 
-        {/* Precio entrada */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Precio entrada *</label>
           <input
@@ -131,7 +124,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           />
         </div>
 
-        {/* Precio cierre */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Precio cierre *</label>
           <input
@@ -143,7 +135,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           />
         </div>
 
-        {/* Nº acciones */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Nº acciones (broker)</label>
           <input
@@ -155,7 +146,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           />
         </div>
 
-        {/* Inversión real */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Inversión real € (broker)</label>
           <input
@@ -167,7 +157,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           />
         </div>
 
-        {/* P&L real del broker — el más importante */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm font-medium'>P&L real € (broker) *</label>
           <input
@@ -180,7 +169,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
           />
         </div>
 
-        {/* Notas */}
         <div className='flex flex-col gap-1 sm:col-span-2'>
           <label className='text-gray-400 text-sm'>Notas</label>
           <input
@@ -192,7 +180,6 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
         </div>
       </div>
 
-      {/* Botones */}
       <div className='flex gap-3 mt-4'>
         <button
           onClick={handleGuardar}
@@ -218,14 +205,12 @@ export default function Historico() {
   const [operaciones, setOperaciones] = useState([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
 
-  // Escucha operaciones en tiempo real desde Firestore
   useEffect(() => {
     if (!usuario) return
     const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.OPERACIONES), snap => {
       const ops = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => {
-          // Ordena por fecha de apertura descendente
           const fa = a.fechaApertura || ''
           const fb = b.fechaApertura || ''
           return fb.localeCompare(fa)
@@ -235,24 +220,19 @@ export default function Historico() {
     return unsub
   }, [usuario])
 
-  // Guarda una operación nueva en Firestore
   const guardarOperacion = async datos => {
     await addDoc(collection(db, 'users', usuario.uid, COLECCIONES.OPERACIONES), datos)
     setMostrarFormulario(false)
   }
 
-  // Actualiza precio actual y recalcula P&L vivo para operaciones abiertas
   const actualizarPrecio = async (op, nuevoPrecio) => {
     const precio = parseFloat(nuevoPrecio)
     if (!precio) return
-
     const pnlVivo =
       op.moneda === 'USD' ? ((precio - op.precioEntrada) * op.numAcciones) / (config.fxEurUsd || 1.15) : (precio - op.precioEntrada) * op.numAcciones
-
     await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.OPERACIONES, op.id), { precioActual: precio, pnlVivo: parseFloat(pnlVivo.toFixed(2)) })
   }
 
-  // Cierra una operación abierta con el precio actual
   const cerrarOperacion = async op => {
     if (!op.precioActual) {
       alert('Introduce primero el precio actual')
@@ -262,7 +242,6 @@ export default function Historico() {
       op.moneda === 'USD'
         ? ((op.precioActual - op.precioEntrada) * op.numAcciones) / (op.fxCompra || 1)
         : (op.precioActual - op.precioEntrada) * op.numAcciones
-
     await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.OPERACIONES, op.id), {
       estado: 'CERRADA',
       precioCierre: op.precioActual,
@@ -272,7 +251,6 @@ export default function Historico() {
     })
   }
 
-  // Elimina una operación de Firestore
   const eliminarOperacion = async op => {
     if (!confirm(`¿Eliminar ${op.ticker}? Esta acción no se puede deshacer.`)) return
     await deleteDoc(doc(db, 'users', usuario.uid, COLECCIONES.OPERACIONES, op.id))
@@ -287,12 +265,38 @@ export default function Historico() {
       {/* ── Cabecera ── */}
       <div className='flex items-center justify-between flex-wrap gap-3'>
         <h2 className='text-lg font-bold text-gray-200'>Histórico de operaciones</h2>
-        <button
-          onClick={() => setMostrarFormulario(!mostrarFormulario)}
-          className='bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-5 rounded-xl transition-colors text-sm'
-        >
-          {mostrarFormulario ? 'Cancelar' : '+ Registrar operación'}
-        </button>
+
+        {/* ── NUEVO: grupo de botones — Exportar + Registrar ── */}
+        <div className='flex items-center gap-2 flex-wrap'>
+          {/* Botones de exportación — solo visibles si hay operaciones */}
+          {operaciones.length > 0 && (
+            <>
+              <button
+                onClick={() => exportarOperacionesCSV(operaciones)}
+                className='border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-gray-200 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
+                title='Descargar todas las operaciones como CSV'
+              >
+                ↓ CSV
+              </button>
+              <button
+                onClick={() => exportarOperacionesExcel(operaciones)}
+                className='border border-green-800 hover:border-green-600 text-green-600 hover:text-green-400 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
+                title='Descargar todas las operaciones como Excel'
+              >
+                ↓ Excel
+              </button>
+            </>
+          )}
+
+          {/* Botón registrar — igual que antes */}
+          <button
+            onClick={() => setMostrarFormulario(!mostrarFormulario)}
+            className='bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-5 rounded-xl transition-colors text-sm'
+          >
+            {mostrarFormulario ? 'Cancelar' : '+ Registrar operación'}
+          </button>
+        </div>
+        {/* ── FIN NUEVO ── */}
       </div>
 
       {/* ── Formulario de registro ── */}
@@ -319,7 +323,6 @@ export default function Historico() {
                 className='bg-gray-900 border border-blue-900 rounded-xl p-4'
               >
                 <div className='flex items-start justify-between gap-4 flex-wrap'>
-                  {/* Info */}
                   <div className='flex flex-col gap-1'>
                     <div className='flex items-center gap-2'>
                       <span className='text-cyan-400 font-bold'>{op.ticker}</span>
@@ -341,8 +344,6 @@ export default function Historico() {
                       </span>
                     </div>
                   </div>
-
-                  {/* P&L vivo */}
                   <div className='text-right'>
                     <p className={`text-2xl font-bold ${(op.pnlVivo || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {(op.pnlVivo || 0) >= 0 ? '+' : ''}
@@ -351,8 +352,6 @@ export default function Historico() {
                     <p className='text-gray-500 text-sm'>Latente</p>
                   </div>
                 </div>
-
-                {/* Controles de precio actual */}
                 <div className='flex items-center gap-3 mt-3 pt-3 border-t border-gray-800 flex-wrap'>
                   <input
                     type='number'
@@ -392,7 +391,6 @@ export default function Historico() {
                 className='bg-gray-900 border border-gray-800 rounded-xl p-4 opacity-90'
               >
                 <div className='flex items-start justify-between gap-4 flex-wrap'>
-                  {/* Info */}
                   <div className='flex flex-col gap-1'>
                     <div className='flex items-center gap-2'>
                       <span className='text-cyan-400 font-bold'>{op.ticker}</span>
@@ -416,8 +414,6 @@ export default function Historico() {
                       {op.notas && <span className='text-gray-600 italic'>{op.notas}</span>}
                     </div>
                   </div>
-
-                  {/* P&L real */}
                   <div className='flex items-center gap-4'>
                     <div className='text-right'>
                       <p className={`text-2xl font-bold ${(op.pnlEuros || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -430,7 +426,6 @@ export default function Historico() {
                         </p>
                       )}
                     </div>
-                    {/* Botón eliminar */}
                     <button
                       onClick={() => eliminarOperacion(op)}
                       className='text-red-800 hover:text-red-500 text-sm px-2 py-1 transition-colors'

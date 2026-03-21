@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMovimientos } from '../hooks/useMovimientos'
 import { TIPO_MOVIMIENTO } from '../config/constants'
+import { exportarMovimientosCSV, exportarMovimientosExcel } from '../services/exportutils.js'
 
 // Colores por tipo de movimiento
 const COLORES = {
@@ -49,7 +50,31 @@ export default function Movimientos() {
 
   return (
     <div className='flex flex-col gap-6 py-4'>
-      <h2 className='text-lg font-bold text-gray-200'>Libro de caja</h2>
+      {/* ── Cabecera con botones de exportación ── */}
+      <div className='flex items-center justify-between flex-wrap gap-3'>
+        <h2 className='text-lg font-bold text-gray-200'>Libro de caja</h2>
+
+        {/* ── NUEVO: botones export — solo si hay movimientos ── */}
+        {movimientos.length > 0 && (
+          <div className='flex items-center gap-2'>
+            <button
+              onClick={() => exportarMovimientosCSV(movimientos)}
+              className='border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-gray-200 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
+              title='Descargar movimientos como CSV'
+            >
+              ↓ CSV
+            </button>
+            <button
+              onClick={() => exportarMovimientosExcel(movimientos)}
+              className='border border-green-800 hover:border-green-600 text-green-600 hover:text-green-400 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
+              title='Descargar movimientos como Excel'
+            >
+              ↓ Excel
+            </button>
+          </div>
+        )}
+        {/* ── FIN NUEVO ── */}
+      </div>
 
       {/* Resumen */}
       <div className='grid grid-cols-3 gap-3'>
