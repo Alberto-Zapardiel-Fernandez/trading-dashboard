@@ -7,6 +7,7 @@ import Calculadora from './pages/Calculadora'
 import DCA from './pages/DCA'
 import Movimientos from './pages/Movimientos'
 import Layout from './components/Layout'
+import Grafica from './pages/Grafica.jsx'
 
 export default function App() {
   const { usuario, cargando } = useAuth()
@@ -51,6 +52,10 @@ export default function App() {
                   <Route
                     path='/movimientos'
                     element={<Movimientos />}
+                  />
+                  <Route
+                    path='/grafica'
+                    element={<Grafica />}
                   />
                 </Routes>
               </Layout>
