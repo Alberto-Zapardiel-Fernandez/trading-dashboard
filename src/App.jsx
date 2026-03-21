@@ -5,12 +5,12 @@ import Dashboard from './pages/Dashboard'
 import Historico from './pages/Historico'
 import Calculadora from './pages/Calculadora'
 import DCA from './pages/DCA'
+import Movimientos from './pages/Movimientos'
 import Layout from './components/Layout'
 
 export default function App() {
   const { usuario, cargando } = useAuth()
 
-  // Mientras comprueba si hay sesión activa
   if (cargando) {
     return (
       <div className='flex items-center justify-center h-screen'>
@@ -20,15 +20,12 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
-        {/* Ruta pública — login */}
         <Route
           path='/login'
           element={!usuario ? <Login /> : <Navigate to='/' />}
         />
-
-        {/* Rutas protegidas — solo si hay sesión */}
         <Route
           path='/*'
           element={
@@ -50,6 +47,10 @@ export default function App() {
                   <Route
                     path='/dca'
                     element={<DCA />}
+                  />
+                  <Route
+                    path='/movimientos'
+                    element={<Movimientos />}
                   />
                 </Routes>
               </Layout>

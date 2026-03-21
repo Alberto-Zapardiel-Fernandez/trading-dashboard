@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Trading Dashboard</title>
+  <script>
+    // Truco para GitHub Pages + React Router (SPA):
+    // Cuando GitHub no encuentra la ruta, sirve este 404.html.
+    // Nosotros guardamos la ruta en sessionStorage y redirigimos a la raíz.
+    // El index.html la leerá y React Router navegará al lugar correcto.
+    var ruta = window.location.pathname;
+    sessionStorage.setItem('rutaRedirigida', ruta);
+    window.location.replace('/trading-dashboard/');
+  </script>
+</head>
+
+<body></body>
+
+</html>

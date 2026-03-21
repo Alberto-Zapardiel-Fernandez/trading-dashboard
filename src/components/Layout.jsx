@@ -19,7 +19,10 @@ const NAV = [
   },
   {
     label: 'Inversión',
-    hijos: [{ to: '/dca', label: 'DCA VUSA' }]
+    hijos: [
+      { to: '/dca', label: 'DCA VUSA' },
+      { to: '/movimientos', label: 'Libro de caja' }
+    ]
   }
 ]
 
