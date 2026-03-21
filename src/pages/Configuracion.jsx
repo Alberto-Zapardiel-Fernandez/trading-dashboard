@@ -1,7 +1,6 @@
-// src/pages/Configuracion.jsx
-
 import { useState } from 'react'
 import { useConfig } from '../hooks/useConfig'
+import { useModoPrivado } from '../context/ModoPrivadoContext'
 
 const TELEGRAM_TOKEN = import.meta.env.VITE_TELEGRAM_TOKEN
 
@@ -20,6 +19,7 @@ export default function Configuracion() {
   const [mensajePrueba, setMensajePrueba] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [resultadoPrueba, setResultadoPrueba] = useState(null)
+  const { ocultar } = useModoPrivado()
 
   const mostrarConfirmacion = () => {
     setGuardado(true)
@@ -100,7 +100,9 @@ export default function Configuracion() {
             <p className='text-gray-400'>
               Estado:{' '}
               {config.telegramChatId ? (
-                <span className='text-green-400 font-medium'>✓ Configurado ({config.telegramChatId})</span>
+                <span className='text-green-400 font-medium'>
+                  {/* Mostramos que está configurado pero ocultamos el ID numérico */}✓ Configurado ({ocultar(config.telegramChatId)})
+                </span>
               ) : (
                 <span className='text-red-400 font-medium'>✗ Sin configurar</span>
               )}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMovimientos } from '../hooks/useMovimientos'
 import { TIPO_MOVIMIENTO } from '../config/constants'
 import { exportarMovimientosCSV, exportarMovimientosExcel } from '../services/exportutils.js'
+import { useModoPrivado } from '../context/ModoPrivadoContext'
 
 // Colores por tipo de movimiento
 const COLORES = {
@@ -14,7 +15,7 @@ const COLORES = {
 
 export default function Movimientos() {
   const { movimientos, añadirMovimiento, eliminarMovimiento, totalMovimientos } = useMovimientos()
-
+  const { ocultar } = useModoPrivado()
   const [form, setForm] = useState({
     fecha: new Date().toISOString().split('T')[0],
     tipo: 'DEPOSITO',
@@ -81,29 +82,29 @@ export default function Movimientos() {
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-sm mb-1'>Total entradas</p>
           <p className='text-green-400 text-2xl font-bold'>
-            +
-            {movimientos
-              .filter(m => m.importe > 0)
-              .reduce((s, m) => s + m.importe, 0)
-              .toFixed(2)}{' '}
-            €
+            {ocultar(
+              `+${movimientos
+                .filter(m => m.importe > 0)
+                .reduce((s, m) => s + m.importe, 0)
+                .toFixed(2)} €`
+            )}
           </p>
         </div>
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-sm mb-1'>Total salidas</p>
           <p className='text-red-400 text-2xl font-bold'>
-            {movimientos
-              .filter(m => m.importe < 0)
-              .reduce((s, m) => s + m.importe, 0)
-              .toFixed(2)}{' '}
-            €
+            {ocultar(
+              `${movimientos
+                .filter(m => m.importe < 0)
+                .reduce((s, m) => s + m.importe, 0)
+                .toFixed(2)} €`
+            )}
           </p>
         </div>
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-sm mb-1'>Balance neto</p>
           <p className={`text-2xl font-bold ${totalMovimientos >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {totalMovimientos >= 0 ? '+' : ''}
-            {totalMovimientos.toFixed(2)} €
+            {ocultar(`${totalMovimientos >= 0 ? '+' : ''}${totalMovimientos.toFixed(2)} €`)}
           </p>
         </div>
       </div>
@@ -203,8 +204,7 @@ export default function Movimientos() {
                         <span className={`text-xs px-2 py-1 rounded-full ${estilo.fondo} ${estilo.texto}`}>{estilo.label}</span>
                       </td>
                       <td className={`p-4 text-right font-bold ${estilo.texto}`}>
-                        {m.importe >= 0 ? '+' : ''}
-                        {m.importe.toFixed(2)} €
+                        {ocultar(`${m.importe >= 0 ? '+' : ''}${m.importe.toFixed(2)} €`)}
                       </td>
                       <td className='p-4 text-gray-500 text-sm'>{m.notas}</td>
                       <td className='p-4 text-right'>

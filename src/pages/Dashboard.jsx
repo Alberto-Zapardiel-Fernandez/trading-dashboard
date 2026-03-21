@@ -6,6 +6,8 @@ import { useConfig } from '../hooks/useConfig'
 import { COLECCIONES } from '../config/constants'
 import { useMovimientos } from '../hooks/useMovimientos'
 import EquityCurve from '../components/EquityCurve.jsx'
+// ── NUEVO ──
+import { useModoPrivado } from '../context/ModoPrivadoContext'
 
 function Tarjeta({ titulo, valor, subtitulo, color = 'text-white' }) {
   return (
@@ -22,6 +24,8 @@ export default function Dashboard() {
   const { config, actualizarConfig } = useConfig()
   const [operaciones, setOperaciones] = useState([])
   const { totalMovimientos } = useMovimientos()
+  // ── NUEVO ──
+  const { ocultar } = useModoPrivado()
 
   useEffect(() => {
     if (!usuario) return
@@ -45,7 +49,7 @@ export default function Dashboard() {
 
   return (
     <div className='flex flex-col gap-6 py-4'>
-      {/* ── EUR/USD ── */}
+      {/* ── EUR/USD — no es sensible ── */}
       <div className='flex items-center gap-3 flex-wrap'>
         <label className='text-gray-400 text-sm ml-4'>EUR/USD:</label>
         <input
@@ -64,25 +68,25 @@ export default function Dashboard() {
         <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
           <Tarjeta
             titulo='Saldo actual'
-            valor={fmt(saldoActual)}
+            valor={ocultar(fmt(saldoActual))}
             subtitulo='Inicial + cerradas + vivo'
             color={saldoActual >= config.saldoInicial ? 'text-green-400' : 'text-red-400'}
           />
           <Tarjeta
             titulo='Riesgo por operación'
-            valor={fmt(riesgo1pct)}
+            valor={ocultar(fmt(riesgo1pct))}
             subtitulo='1% del saldo realizado'
             color='text-yellow-400'
           />
           <Tarjeta
             titulo='P&L realizado'
-            valor={fmt(pnlRealizado)}
+            valor={ocultar(fmt(pnlRealizado))}
             subtitulo={`${cerradas.length} operaciones cerradas`}
             color={pnlRealizado >= 0 ? 'text-green-400' : 'text-red-400'}
           />
           <Tarjeta
             titulo='Win rate'
-            valor={`${winRate.toFixed(1)}%`}
+            valor={ocultar(`${winRate.toFixed(1)}%`)}
             subtitulo={`${ganadas} de ${cerradas.length} ganadoras`}
             color={winRate >= 50 ? 'text-green-400' : 'text-red-400'}
           />
@@ -93,7 +97,7 @@ export default function Dashboard() {
       <div className='grid grid-cols-2 sm:grid-cols-3 gap-3'>
         <Tarjeta
           titulo='P&L vivo'
-          valor={fmt(pnlVivo)}
+          valor={ocultar(fmt(pnlVivo))}
           subtitulo='Posiciones abiertas ahora'
           color={pnlVivo >= 0 ? 'text-green-400' : 'text-red-400'}
         />
@@ -105,7 +109,7 @@ export default function Dashboard() {
         />
         <Tarjeta
           titulo='P&L total'
-          valor={fmt(pnlRealizado + pnlVivo)}
+          valor={ocultar(fmt(pnlRealizado + pnlVivo))}
           subtitulo='Realizado + latente'
           color={pnlRealizado + pnlVivo >= 0 ? 'text-green-400' : 'text-red-400'}
         />
@@ -119,11 +123,11 @@ export default function Dashboard() {
             <table className='w-full'>
               <thead>
                 <tr className='border-b border-gray-800'>
-                  <th className='text-left   text-gray-400 p-4 font-medium'>Ticker</th>
-                  <th className='text-right  text-gray-400 p-4 font-medium'>Entrada</th>
-                  <th className='text-right  text-gray-400 p-4 font-medium'>Actual</th>
-                  <th className='text-right  text-gray-400 p-4 font-medium'>P&L €</th>
-                  <th className='text-right  text-gray-400 p-4 font-medium'>P&L %</th>
+                  <th className='text-left  text-gray-400 p-4 font-medium'>Ticker</th>
+                  <th className='text-right text-gray-400 p-4 font-medium'>Entrada</th>
+                  <th className='text-right text-gray-400 p-4 font-medium'>Actual</th>
+                  <th className='text-right text-gray-400 p-4 font-medium'>P&L €</th>
+                  <th className='text-right text-gray-400 p-4 font-medium'>P&L %</th>
                 </tr>
               </thead>
               <tbody>
@@ -136,10 +140,10 @@ export default function Dashboard() {
                     <td className='p-4 text-right text-gray-300'>{op.precioEntrada?.toFixed(3)}</td>
                     <td className='p-4 text-right text-yellow-400'>{op.precioActual ? op.precioActual.toFixed(3) : '—'}</td>
                     <td className={`p-4 text-right font-bold ${(op.pnlVivo || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {fmt(op.pnlVivo || 0)}
+                      {ocultar(fmt(op.pnlVivo || 0))}
                     </td>
                     <td className={`p-4 text-right ${(op.pnlVivo || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {op.inversion > 0 ? `${(((op.pnlVivo || 0) / op.inversion) * 100).toFixed(2)}%` : '—'}
+                      {op.inversion > 0 ? ocultar(`${(((op.pnlVivo || 0) / op.inversion) * 100).toFixed(2)}%`) : '—'}
                     </td>
                   </tr>
                 ))}
@@ -177,11 +181,10 @@ export default function Dashboard() {
                       <td className='p-4 text-right text-gray-300'>{op.precioEntrada?.toFixed(3)}</td>
                       <td className='p-4 text-right text-gray-300'>{op.precioCierre?.toFixed(3)}</td>
                       <td className={`p-4 text-right font-bold ${(op.pnlEuros || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {(op.pnlEuros || 0) >= 0 ? '+' : ''}
-                        {fmt(op.pnlEuros || 0)}
+                        {ocultar(`${(op.pnlEuros || 0) >= 0 ? '+' : ''}${fmt(op.pnlEuros || 0)}`)}
                       </td>
                       <td className={`p-4 text-right ${(op.pnlEuros || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {op.inversion > 0 ? `${(((op.pnlEuros || 0) / op.inversion) * 100).toFixed(2)}%` : '—'}
+                        {op.inversion > 0 ? ocultar(`${(((op.pnlEuros || 0) / op.inversion) * 100).toFixed(2)}%`) : '—'}
                       </td>
                     </tr>
                   ))}

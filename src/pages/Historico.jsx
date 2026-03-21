@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useConfig } from '../hooks/useConfig'
 import { COLECCIONES } from '../config/constants'
 import { exportarOperacionesCSV, exportarOperacionesExcel } from '../services/exportutils.js'
+import { useModoPrivado } from '../context/ModoPrivadoContext'
 
 // ── Formulario para registrar una operación cerrada manualmente ──
 function FormularioOperacion({ onGuardar, onCancelar }) {
@@ -204,6 +205,7 @@ export default function Historico() {
   const { config } = useConfig()
   const [operaciones, setOperaciones] = useState([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
+  const { ocultar } = useModoPrivado()
 
   useEffect(() => {
     if (!usuario) return
@@ -346,8 +348,7 @@ export default function Historico() {
                   </div>
                   <div className='text-right'>
                     <p className={`text-2xl font-bold ${(op.pnlVivo || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {(op.pnlVivo || 0) >= 0 ? '+' : ''}
-                      {fmt2(op.pnlVivo)} €
+                      {ocultar(`${(op.pnlVivo || 0) >= 0 ? '+' : ''}${fmt2(op.pnlVivo)} €`)}
                     </p>
                     <p className='text-gray-500 text-sm'>Latente</p>
                   </div>
@@ -417,12 +418,11 @@ export default function Historico() {
                   <div className='flex items-center gap-4'>
                     <div className='text-right'>
                       <p className={`text-2xl font-bold ${(op.pnlEuros || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {(op.pnlEuros || 0) >= 0 ? '+' : ''}
-                        {fmt2(op.pnlEuros)} €
+                        {ocultar(`${(op.pnlEuros || 0) >= 0 ? '+' : ''}${fmt2(op.pnlEuros)} €`)}
                       </p>
                       {op.inversion > 0 && (
                         <p className={`text-sm ${(op.pnlEuros || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {(((op.pnlEuros || 0) / op.inversion) * 100).toFixed(2)}%
+                          {ocultar(`${(((op.pnlEuros || 0) / op.inversion) * 100).toFixed(2)}%`)}
                         </p>
                       )}
                     </div>

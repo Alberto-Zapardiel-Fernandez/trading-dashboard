@@ -14,6 +14,7 @@ import { RadarProvider } from './context/RadarProvider'
 import Configuracion from './pages/Configuracion'
 import Explorador from './pages/Explorador.jsx'
 import Noticias from './pages/Noticias.jsx'
+import { ModoPrivadoProvider } from './context/ModoPrivadoProvider'
 
 export default function App() {
   const { usuario, cargando } = useAuth()
@@ -37,52 +38,54 @@ export default function App() {
           path='/*'
           element={
             usuario ? (
-              <RadarProvider>
-                <Layout usuario={usuario}>
-                  <Routes>
-                    <Route
-                      path='/'
-                      element={<Dashboard />}
-                    />
-                    <Route
-                      path='/historico'
-                      element={<Historico />}
-                    />
-                    <Route
-                      path='/calculadora'
-                      element={<Calculadora />}
-                    />
-                    <Route
-                      path='/dca'
-                      element={<DCA />}
-                    />
-                    <Route
-                      path='/movimientos'
-                      element={<Movimientos />}
-                    />
-                    <Route
-                      path='/grafica'
-                      element={<Grafica />}
-                    />
-                    <Route
-                      path='/radar'
-                      element={<Radar />}
-                    />
-                    <Route
-                      path='/configuracion'
-                      element={<Configuracion />}
-                    />
-                    <Route
-                      path='/explorador'
-                      element={<Explorador />}
-                    />
-                    <Route
-                      path='/noticias'
-                      element={<Noticias />}
-                    />
-                  </Routes>
-                </Layout>
-              </RadarProvider>
+              <ModoPrivadoProvider>
+                <RadarProvider>
+                  <Layout usuario={usuario}>
+                    <Routes>
+                      <Route
+                        path='/'
+                        element={<Dashboard />}
+                      />
+                      <Route
+                        path='/historico'
+                        element={<Historico />}
+                      />
+                      <Route
+                        path='/calculadora'
+                        element={<Calculadora />}
+                      />
+                      <Route
+                        path='/dca'
+                        element={<DCA />}
+                      />
+                      <Route
+                        path='/movimientos'
+                        element={<Movimientos />}
+                      />
+                      <Route
+                        path='/grafica'
+                        element={<Grafica />}
+                      />
+                      <Route
+                        path='/radar'
+                        element={<Radar />}
+                      />
+                      <Route
+                        path='/configuracion'
+                        element={<Configuracion />}
+                      />
+                      <Route
+                        path='/explorador'
+                        element={<Explorador />}
+                      />
+                      <Route
+                        path='/noticias'
+                        element={<Noticias />}
+                      />
+                    </Routes>
+                  </Layout>
+                </RadarProvider>
+              </ModoPrivadoProvider>
             ) : (
               <Navigate to='/login' />
             )

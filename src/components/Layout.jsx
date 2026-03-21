@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LogOut, ChevronDown, Menu, X } from 'lucide-react'
+// ── NUEVO: Eye y EyeOff para el toggle de modo privado ──
+import { LogOut, ChevronDown, Menu, X, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+// ── NUEVO: hook del modo privado ──
+import { useModoPrivado } from '../context/ModoPrivadoContext'
 
 const NAV = [
-  {
-    label: 'Dashboard',
-    to: '/',
-    exact: true
-  },
+  { label: 'Dashboard', to: '/', exact: true },
   {
     label: 'Operaciones',
     hijos: [
@@ -31,16 +30,8 @@ const NAV = [
       { to: '/movimientos', label: 'Libro de caja' }
     ]
   },
-  {
-    label: 'Noticias',
-    to: '/noticias',
-    exact: false
-  },
-  {
-    label: 'Configuración',
-    to: '/configuracion',
-    exact: false
-  }
+  { label: 'Noticias', to: '/noticias', exact: false },
+  { label: 'Configuración', to: '/configuracion', exact: false }
 ]
 
 export default function Layout({ children, usuario }) {
@@ -48,18 +39,18 @@ export default function Layout({ children, usuario }) {
   const navigate = useNavigate()
   const location = useLocation()
   const navRef = useRef(null)
+  // ── NUEVO: estado y toggle del modo privado ──
+  const { modoPrivado, toggleModoPrivado } = useModoPrivado()
 
   const [menuAbierto, setMenuAbierto] = useState(null)
   const [movil, setMovil] = useState(false)
 
-  // Cierra el menú al cambiar de ruta
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMenuAbierto(null)
     setMovil(false)
   }, [location.pathname])
 
-  // Cierra el menú al hacer clic fuera del nav
   useEffect(() => {
     const handler = e => {
       if (navRef.current && !navRef.current.contains(e.target)) {
@@ -75,9 +66,7 @@ export default function Layout({ children, usuario }) {
     navigate('/login')
   }
 
-  const toggleMenu = label => {
-    setMenuAbierto(menuAbierto === label ? null : label)
-  }
+  const toggleMenu = label => setMenuAbierto(menuAbierto === label ? null : label)
 
   return (
     <div className='min-h-screen flex flex-col text-base'>
@@ -148,7 +137,7 @@ export default function Layout({ children, usuario }) {
             )}
           </nav>
 
-          {/* Usuario + logout */}
+          {/* Usuario + controles */}
           <div className='flex items-center gap-2 shrink-0'>
             <img
               src={usuario.photoURL}
@@ -156,6 +145,21 @@ export default function Layout({ children, usuario }) {
               className='w-7 h-7 rounded-full ring-2 ring-gray-700'
             />
             <span className='text-gray-300 text-sm hidden xl:block truncate max-w-32'>{usuario.displayName}</span>
+
+            {/* ── NUEVO: toggle modo privado ── */}
+            <button
+              onClick={toggleModoPrivado}
+              title={modoPrivado ? 'Modo privado activo — pulsa para mostrar valores' : 'Pulsa para ocultar valores'}
+              className={`p-1 transition-colors ${
+                modoPrivado
+                  ? 'text-yellow-400 hover:text-yellow-300' // activo → amarillo
+                  : 'text-gray-500 hover:text-gray-300' // inactivo → gris
+              }`}
+            >
+              {modoPrivado ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+            {/* ── FIN NUEVO ── */}
+
             <button
               onClick={handleLogout}
               title='Cerrar sesión'
@@ -172,7 +176,7 @@ export default function Layout({ children, usuario }) {
           </div>
         </div>
 
-        {/* Menú móvil */}
+        {/* Menú móvil — sin cambios */}
         {movil && (
           <div className='md:hidden border-t border-gray-800 bg-gray-900 px-4 py-3 flex flex-col gap-1'>
             {NAV.map(item =>

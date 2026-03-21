@@ -4,6 +4,7 @@ import { db } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { COLECCIONES } from '../config/constants'
 import { usePreciosVivos } from './../hooks/usePreciosVivos'
+import { useModoPrivado } from '../context/ModoPrivadoContext'
 
 export default function DCA() {
   const { usuario } = useAuth()
@@ -12,6 +13,7 @@ export default function DCA() {
   const [form, setForm] = useState({ fecha: '', invertido: '', precioCompra: '' })
   const [error, setError] = useState('')
   const { precios } = usePreciosVivos(['VUSA.DE'])
+  const { ocultar } = useModoPrivado()
 
   useEffect(() => {
     if (precios['VUSA.DE']) {
@@ -98,26 +100,24 @@ export default function DCA() {
       <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-xs mb-1'>Total invertido</p>
-          <p className='text-yellow-400 text-xl font-bold'>{fmt2(totalInvertido)} €</p>
+          <p className='text-yellow-400 text-xl font-bold'>{ocultar(`${fmt2(totalInvertido)} €`)}</p>
         </div>
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-xs mb-1'>Participaciones</p>
+          {/* Las participaciones son un número neutro, no un importe */}
           <p className='text-cyan-400 text-xl font-bold'>{totalParticipaciones.toFixed(4)}</p>
         </div>
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-xs mb-1'>Precio medio (break-even)</p>
+          {/* El precio medio es un precio de mercado, no un importe personal */}
           <p className='text-purple-400 text-xl font-bold'>{fmt3(precioMedio)} €</p>
           <p className='text-gray-500 text-xs mt-1'>= invertido ÷ participaciones</p>
         </div>
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-xs mb-1'>P&L total</p>
-          <p className={`text-xl font-bold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {pnl >= 0 ? '+' : ''}
-            {fmt2(pnl)} €
-          </p>
+          <p className={`text-xl font-bold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>{ocultar(`${pnl >= 0 ? '+' : ''}${fmt2(pnl)} €`)}</p>
           <p className={`text-xs mt-1 ${pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-            {pnlPct >= 0 ? '+' : ''}
-            {pnlPct.toFixed(2)}%
+            {ocultar(`${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`)}
           </p>
         </div>
       </div>
@@ -207,11 +207,12 @@ export default function DCA() {
                     className='border-b border-gray-800 last:border-0 hover:bg-gray-800/50'
                   >
                     <td className='p-3 text-gray-300'>{a.fecha.split('-').reverse().join('-')}</td>
-                    <td className='p-3 text-right text-blue-300'>{fmt2(a.invertido)} €</td>
+                    <td className='p-3 text-right text-blue-300'>{ocultar(`${fmt2(a.invertido)} €`)}</td>
+                    {/* precio compra y PM acumulado son precios de mercado — no se ocultan */}
                     <td className='p-3 text-right text-gray-300'>{fmt3(a.precioCompra)} €</td>
                     <td className='p-3 text-right text-cyan-400'>{a.participaciones?.toFixed(4)}</td>
                     <td className='p-3 text-right text-purple-400'>{fmt3(pmAcum)} €</td>
-                    <td className='p-3 text-right text-gray-300'>{precioActual ? `${fmt2(valorHoy)} €` : '—'}</td>
+                    <td className='p-3 text-right text-gray-300'>{precioActual ? ocultar(`${fmt2(valorHoy)} €`) : '—'}</td>
                     <td className='p-3 text-right'>
                       <button
                         onClick={() => eliminarAportacion(a.id)}
