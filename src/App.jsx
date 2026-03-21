@@ -8,6 +8,7 @@ import DCA from './pages/DCA'
 import Movimientos from './pages/Movimientos'
 import Layout from './components/Layout'
 import Grafica from './pages/Grafica.jsx'
+import Radar from './pages/Radar.jsx'
 
 export default function App() {
   const { usuario, cargando } = useAuth()
@@ -56,6 +57,10 @@ export default function App() {
                   <Route
                     path='/grafica'
                     element={<Grafica />}
+                  />
+                  <Route
+                    path='/radar'
+                    element={<Radar />}
                   />
                 </Routes>
               </Layout>

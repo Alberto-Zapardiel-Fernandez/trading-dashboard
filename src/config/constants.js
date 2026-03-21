@@ -4,7 +4,8 @@ export const COLECCIONES = {
   OPERACIONES: 'operaciones',
   DCA: 'dca',
   CONFIG: 'config',
-  MOVIMIENTOS: 'movimientos' // ingresos, retiradas, intereses
+  MOVIMIENTOS: 'movimientos',
+  RADAR: 'radar'
 }
 
 // Tipos de movimiento en el libro de caja
@@ -13,5 +14,5 @@ export const TIPO_MOVIMIENTO = {
   RETIRADA: 'RETIRADA',
   INTERES: 'INTERES',
   DIVIDENDO: 'DIVIDENDO',
-  AJUSTE: 'AJUSTE' // para cuadrar manualmente si hace falta
+  AJUSTE: 'AJUSTE'
 }

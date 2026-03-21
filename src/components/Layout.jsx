@@ -15,7 +15,8 @@ const NAV = [
     hijos: [
       { to: '/calculadora', label: 'Calculadora de entrada' },
       { to: '/historico', label: 'Histórico' },
-      { to: '/grafica', label: 'Análisis técnico' }
+      { to: '/grafica', label: 'Análisis técnico' },
+      { to: '/radar', label: 'Radar de vigilancia' }
     ]
   },
   {
