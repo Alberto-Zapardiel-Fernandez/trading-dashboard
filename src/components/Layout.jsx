@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { LogOut, ChevronDown, Menu, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 
-// Estructura de navegación con submenús
 const NAV = [
   {
     label: 'Dashboard',
@@ -14,7 +13,12 @@ const NAV = [
     label: 'Operaciones',
     hijos: [
       { to: '/calculadora', label: 'Calculadora de entrada' },
-      { to: '/historico', label: 'Histórico' },
+      { to: '/historico', label: 'Histórico' }
+    ]
+  },
+  {
+    label: 'Análisis',
+    hijos: [
       { to: '/grafica', label: 'Análisis técnico' },
       { to: '/radar', label: 'Radar de vigilancia' }
     ]
@@ -26,16 +30,17 @@ const NAV = [
       { to: '/movimientos', label: 'Libro de caja' }
     ]
   },
-  { label: 'Configuración', to: '/configuracion', exact: false }
+  {
+    label: 'Configuración',
+    to: '/configuracion',
+    exact: false
+  }
 ]
 
 export default function Layout({ children, usuario }) {
   const { logout } = useAuth()
   const navigate = useNavigate()
-
-  // Controla qué menú desplegable está abierto
   const [menuAbierto, setMenuAbierto] = useState(null)
-  // Controla el menú móvil
   const [movil, setMovil] = useState(false)
 
   const handleLogout = async () => {
@@ -49,7 +54,7 @@ export default function Layout({ children, usuario }) {
 
   return (
     <div className='min-h-screen flex flex-col text-base'>
-      {/* ── Barra de navegación principal ── */}
+      {/* ── Navbar ── */}
       <header className='bg-gray-900 border-b border-gray-800 sticky top-0 z-50'>
         <div className='max-w-7xl mx-auto px-4 h-14 flex items-center justify-between'>
           {/* Logo */}
@@ -59,14 +64,13 @@ export default function Layout({ children, usuario }) {
           <nav className='hidden md:flex items-center gap-1'>
             {NAV.map(item =>
               item.to ? (
-                // Enlace directo sin hijos
                 <NavLink
                   key={item.to}
                   to={item.to}
                   end={item.exact}
                   onClick={() => setMenuAbierto(null)}
                   className={({ isActive }) =>
-                    `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    `px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                       isActive ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
                     }`
                   }
@@ -74,14 +78,13 @@ export default function Layout({ children, usuario }) {
                   {item.label}
                 </NavLink>
               ) : (
-                // Menú con desplegable
                 <div
                   key={item.label}
                   className='relative'
                 >
                   <button
                     onClick={() => toggleMenu(item.label)}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                       menuAbierto === item.label ? 'bg-gray-800 text-gray-100' : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
                     }`}
                   >
@@ -94,14 +97,14 @@ export default function Layout({ children, usuario }) {
 
                   {/* Desplegable */}
                   {menuAbierto === item.label && (
-                    <div className='absolute top-full left-0 mt-1 bg-gray-900 border border-gray-700 rounded-xl shadow-xl py-1 min-w-48 z-50'>
+                    <div className='absolute top-full left-0 mt-1 bg-gray-900 border border-gray-700 rounded-xl shadow-xl py-1 min-w-52 z-50'>
                       {item.hijos.map(hijo => (
                         <NavLink
                           key={hijo.to}
                           to={hijo.to}
                           onClick={() => setMenuAbierto(null)}
                           className={({ isActive }) =>
-                            `block px-4 py-2.5 text-sm transition-colors ${
+                            `block px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
                               isActive ? 'text-blue-400 bg-blue-600/10' : 'text-gray-300 hover:text-gray-100 hover:bg-gray-800'
                             }`
                           }
@@ -142,7 +145,7 @@ export default function Layout({ children, usuario }) {
           </div>
         </div>
 
-        {/* ── Menú móvil desplegado ── */}
+        {/* ── Menú móvil ── */}
         {movil && (
           <div className='md:hidden border-t border-gray-800 bg-gray-900 px-4 py-3 flex flex-col gap-1'>
             {NAV.map(item =>
@@ -178,7 +181,7 @@ export default function Layout({ children, usuario }) {
         )}
       </header>
 
-      {/* ── Contenido de cada página ── */}
+      {/* ── Contenido ── */}
       <main className='flex-1 max-w-7xl mx-auto w-full px-4 py-6'>{children}</main>
     </div>
   )
