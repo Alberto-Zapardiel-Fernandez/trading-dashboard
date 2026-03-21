@@ -1,7 +1,11 @@
 // src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
+// ── NUEVO WHITELIST: hook de comprobación de acceso ──
+import { useWhitelist } from './hooks/useWhitelist'
 import Login from './pages/Login'
+// ── NUEVO WHITELIST: pantalla de acceso denegado ──
+import AccesoDenegado from './pages/AccesoDenegado'
 import Dashboard from './pages/Dashboard'
 import Historico from './pages/Historico'
 import Calculadora from './pages/Calculadora'
@@ -20,11 +24,24 @@ import Estadisticas from './pages/Estadisticas.jsx'
 
 export default function App() {
   const { usuario, cargando } = useAuth()
+  // ── NUEVO WHITELIST: comprobamos acceso en cuanto hay usuario ──
+  const { acceso } = useWhitelist(usuario)
 
+  // Spinner mientras Firebase resuelve la sesión
   if (cargando) {
     return (
       <div className='flex items-center justify-center h-screen'>
         <p className='text-gray-400'>Cargando...</p>
+      </div>
+    )
+  }
+
+  // ── NUEVO WHITELIST ──
+  // Si hay usuario pero todavía estamos consultando Firestore → spinner
+  if (usuario && acceso === null) {
+    return (
+      <div className='flex items-center justify-center h-screen'>
+        <p className='text-gray-400'>Verificando acceso...</p>
       </div>
     )
   }
@@ -36,10 +53,24 @@ export default function App() {
           path='/login'
           element={!usuario ? <Login /> : <Navigate to='/' />}
         />
+
+        {/* ── NUEVO WHITELIST: ruta para usuarios sin permiso ── */}
+        <Route
+          path='/acceso-denegado'
+          element={usuario ? <AccesoDenegado /> : <Navigate to='/login' />}
+        />
+
         <Route
           path='/*'
           element={
-            usuario ? (
+            !usuario ? (
+              // No autenticado → login
+              <Navigate to='/login' />
+            ) : acceso === false ? (
+              // ── NUEVO WHITELIST: autenticado pero no autorizado ──
+              <Navigate to='/acceso-denegado' />
+            ) : (
+              // Autenticado y autorizado → app normal
               <ModoPrivadoProvider>
                 <RadarProvider>
                   <Layout usuario={usuario}>
@@ -96,8 +127,6 @@ export default function App() {
                   </Layout>
                 </RadarProvider>
               </ModoPrivadoProvider>
-            ) : (
-              <Navigate to='/login' />
             )
           }
         />

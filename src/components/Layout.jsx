@@ -77,10 +77,13 @@ export default function Layout({ children, usuario }) {
       <header className='bg-gray-900 border-b border-gray-800 sticky top-0 z-50'>
         <div className='max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-2'>
           {/* Logo */}
-          <span className='text-yellow-400 font-bold tracking-tight whitespace-nowrap shrink-0'>
+          <NavLink
+            to='/'
+            className='text-yellow-400 font-bold tracking-tight whitespace-nowrap shrink-0 hover:text-yellow-300 transition-colors'
+          >
             <span className='hidden lg:inline text-base'>⚡ Trading Dashboard</span>
             <span className='lg:hidden text-lg'>⚡</span>
-          </span>
+          </NavLink>
 
           {/* Navegación escritorio */}
           <nav
@@ -174,9 +177,13 @@ export default function Layout({ children, usuario }) {
             >
               <LogOut size={15} />
             </button>
+
+            {/* Separador visual solo en móvil — evita pulsar logout sin querer */}
+            <div className='md:hidden w-px h-5 bg-gray-700 mx-1' />
+
             <button
               onClick={() => setMovil(!movil)}
-              className='md:hidden text-gray-400 hover:text-gray-100 p-1'
+              className='md:hidden text-gray-400 hover:text-gray-100 p-2'
             >
               {movil ? <X size={20} /> : <Menu size={20} />}
             </button>
