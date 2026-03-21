@@ -16,6 +16,7 @@ import Explorador from './pages/Explorador.jsx'
 import Noticias from './pages/Noticias.jsx'
 import { ModoPrivadoProvider } from './context/ModoPrivadoProvider'
 import ResumenFiscal from './pages/ResumenFiscal.jsx'
+import Estadisticas from './pages/Estadisticas.jsx'
 
 export default function App() {
   const { usuario, cargando } = useAuth()
@@ -86,6 +87,10 @@ export default function App() {
                       <Route
                         path='/resumen-fiscal'
                         element={<ResumenFiscal />}
+                      />
+                      <Route
+                        path='/estadisticas'
+                        element={<Estadisticas />}
                       />
                     </Routes>
                   </Layout>
