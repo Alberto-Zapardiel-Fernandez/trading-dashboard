@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
@@ -7,7 +7,7 @@ import { COLECCIONES } from '../config/constants'
 import { exportarOperacionesCSV, exportarOperacionesExcel } from '../services/exportutils.js'
 import { useModoPrivado } from '../context/ModoPrivadoContext'
 
-// ── Estilos reutilizables de inputs ──────────────────────────────────────────
+// ── Estilos reutilizables ─────────────────────────────────────────────────────
 const inputBase = 'bg-gray-800 border rounded-lg px-3 py-2 outline-none w-full'
 const inputNeutral = `${inputBase} border-gray-700 text-gray-200 focus:border-blue-500`
 const inputAzul = `${inputBase} border-blue-700 text-blue-300 focus:border-blue-500`
@@ -172,7 +172,8 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
       <div className='flex gap-3 mt-4'>
         <button
           onClick={handleGuardar}
-          className='bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-xl transition-colors'
+          className='bg-blue-600 hover:bg-blue-700 text-white font-medium
+                     py-2 px-6 rounded-xl transition-colors'
         >
           Guardar operación
         </button>
@@ -187,8 +188,7 @@ function FormularioOperacion({ onGuardar, onCancelar }) {
   )
 }
 
-// ── Formulario de EDICIÓN — prefilled con los datos de la operación ───────────
-// Funciona tanto para abiertas (sin precioCierre/pnlEuros) como cerradas
+// ── Formulario de EDICIÓN ─────────────────────────────────────────────────────
 function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
   const [form, setForm] = useState({
     ticker: operacion.ticker ?? '',
@@ -204,7 +204,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
     fxCompra: operacion.fxCompra ?? '1',
     notas: operacion.notas ?? ''
   })
-
   const set = (campo, valor) => setForm(f => ({ ...f, [campo]: valor }))
   const esCerrada = operacion.estado === 'CERRADA'
 
@@ -213,7 +212,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
       alert('Ticker y precio de entrada son obligatorios')
       return
     }
-    // Construimos solo los campos que aplican según el estado
     const datos = {
       ticker: form.ticker.toUpperCase(),
       moneda: form.moneda,
@@ -240,9 +238,7 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
         Editando {operacion.ticker}
         <span className='text-gray-500 font-normal text-sm ml-2'>— {esCerrada ? 'operación cerrada' : 'posición abierta'}</span>
       </h3>
-
       <div className='grid grid-cols-2 sm:grid-cols-3 gap-4'>
-        {/* Ticker */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Ticker</label>
           <input
@@ -251,8 +247,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             className={inputNeutral}
           />
         </div>
-
-        {/* Moneda */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Moneda</label>
           <select
@@ -264,8 +258,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             <option value='USD'>USD</option>
           </select>
         </div>
-
-        {/* FX solo si USD */}
         {form.moneda === 'USD' && (
           <div className='flex flex-col gap-1'>
             <label className='text-gray-400 text-sm'>EUR/USD día compra</label>
@@ -278,8 +270,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             />
           </div>
         )}
-
-        {/* Fecha apertura */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Fecha apertura</label>
           <input
@@ -289,8 +279,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             className={inputNeutral}
           />
         </div>
-
-        {/* Fecha cierre — solo cerradas */}
         {esCerrada && (
           <div className='flex flex-col gap-1'>
             <label className='text-gray-400 text-sm'>Fecha cierre</label>
@@ -302,8 +290,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             />
           </div>
         )}
-
-        {/* Precio entrada */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Precio entrada</label>
           <input
@@ -314,8 +300,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             className={inputAzul}
           />
         </div>
-
-        {/* Precio cierre — solo cerradas */}
         {esCerrada && (
           <div className='flex flex-col gap-1'>
             <label className='text-gray-400 text-sm'>Precio cierre</label>
@@ -328,8 +312,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             />
           </div>
         )}
-
-        {/* Stop Loss — solo abiertas */}
         {!esCerrada && (
           <div className='flex flex-col gap-1'>
             <label className='text-gray-400 text-sm'>Stop Loss</label>
@@ -342,8 +324,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             />
           </div>
         )}
-
-        {/* Nº acciones */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Nº acciones</label>
           <input
@@ -354,8 +334,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             className={inputNeutral}
           />
         </div>
-
-        {/* Inversión */}
         <div className='flex flex-col gap-1'>
           <label className='text-gray-400 text-sm'>Inversión real € (broker)</label>
           <input
@@ -366,8 +344,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             className={inputNeutral}
           />
         </div>
-
-        {/* P&L real — solo cerradas */}
         {esCerrada && (
           <div className='flex flex-col gap-1'>
             <label className='text-gray-400 text-sm font-medium'>P&L real € (broker)</label>
@@ -380,8 +356,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
             />
           </div>
         )}
-
-        {/* Notas */}
         <div className='flex flex-col gap-1 sm:col-span-2'>
           <label className='text-gray-400 text-sm'>Notas</label>
           <input
@@ -392,7 +366,6 @@ function FormularioEdicion({ operacion, onGuardar, onCancelar }) {
           />
         </div>
       </div>
-
       <div className='flex gap-3 mt-4'>
         <button
           onClick={handleGuardar}
@@ -417,10 +390,16 @@ export default function Historico() {
   const { usuario } = useAuth()
   const { config } = useConfig()
   const { ocultar } = useModoPrivado()
+
   const [operaciones, setOperaciones] = useState([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
-  // ID de la operación que está siendo editada (null = ninguna)
   const [editandoId, setEditandoId] = useState(null)
+
+  // ── Filtros ──
+  const [filtroBusqueda, setFiltroBusqueda] = useState('') // texto libre por ticker
+  const [filtroAnio, setFiltroAnio] = useState('') // año fiscal
+  const [filtroEstado, setFiltroEstado] = useState('') // ABIERTA | CERRADA | ''
+  const [filtroResultado, setFiltroResultado] = useState('') // GANADORA | PERDEDORA | ''
 
   useEffect(() => {
     if (!usuario) return
@@ -431,12 +410,58 @@ export default function Historico() {
     return unsub
   }, [usuario])
 
+  // ── Años disponibles para el selector — extraídos de las operaciones ──
+  const aniosDisponibles = useMemo(() => {
+    const set = new Set()
+    operaciones.forEach(op => {
+      // Usamos fechaCierre para el criterio fiscal (año en que se materializó el resultado)
+      const fecha = op.fechaCierre || op.fechaApertura
+      if (fecha) set.add(fecha.substring(0, 4))
+    })
+    return Array.from(set).sort((a, b) => b.localeCompare(a)) // más reciente primero
+  }, [operaciones])
+
+  // ── Operaciones filtradas — se recalcula solo cuando cambia algún filtro ──
+  const operacionesFiltradas = useMemo(() => {
+    return operaciones.filter(op => {
+      // Filtro por ticker (búsqueda parcial, insensible a mayúsculas)
+      if (filtroBusqueda) {
+        const q = filtroBusqueda.toUpperCase()
+        if (!op.ticker?.toUpperCase().includes(q)) return false
+      }
+      // Filtro por año fiscal (usando fechaCierre para cerradas, fechaApertura para abiertas)
+      if (filtroAnio) {
+        const fecha = op.fechaCierre || op.fechaApertura || ''
+        if (!fecha.startsWith(filtroAnio)) return false
+      }
+      // Filtro por estado
+      if (filtroEstado && op.estado !== filtroEstado) return false
+      // Filtro por resultado (solo aplica a cerradas)
+      if (filtroResultado) {
+        if (op.estado !== 'CERRADA') return false
+        const esGanadora = (op.pnlEuros || 0) > 0
+        if (filtroResultado === 'GANADORA' && !esGanadora) return false
+        if (filtroResultado === 'PERDEDORA' && esGanadora) return false
+      }
+      return true
+    })
+  }, [operaciones, filtroBusqueda, filtroAnio, filtroEstado, filtroResultado])
+
+  // ── ¿Hay algún filtro activo? ──
+  const hayFiltros = filtroBusqueda || filtroAnio || filtroEstado || filtroResultado
+
+  const limpiarFiltros = () => {
+    setFiltroBusqueda('')
+    setFiltroAnio('')
+    setFiltroEstado('')
+    setFiltroResultado('')
+  }
+
   const guardarOperacion = async datos => {
     await addDoc(collection(db, 'users', usuario.uid, COLECCIONES.OPERACIONES), datos)
     setMostrarFormulario(false)
   }
 
-  // Guarda los cambios de edición en Firestore
   const guardarEdicion = async (id, datos) => {
     await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.OPERACIONES, id), datos)
     setEditandoId(null)
@@ -474,8 +499,11 @@ export default function Historico() {
   }
 
   const fmt2 = n => (n || 0).toFixed(2)
-  const cerradas = operaciones.filter(o => o.estado === 'CERRADA')
-  const abiertas = operaciones.filter(o => o.estado === 'ABIERTA')
+  const cerradas = operacionesFiltradas.filter(o => o.estado === 'CERRADA')
+  const abiertas = operacionesFiltradas.filter(o => o.estado === 'ABIERTA')
+
+  // Estilo compartido para los selectores de filtro
+  const selectFiltro = 'bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 outline-none focus:border-blue-500'
 
   return (
     <div className='flex flex-col gap-6 py-4'>
@@ -485,19 +513,20 @@ export default function Historico() {
         <div className='flex items-center gap-2 flex-wrap'>
           {operaciones.length > 0 && (
             <>
+              {/* Exportar respeta los filtros activos */}
               <button
-                onClick={() => exportarOperacionesCSV(operaciones)}
+                onClick={() => exportarOperacionesCSV(operacionesFiltradas)}
                 className='border border-gray-600 hover:border-gray-400 text-gray-400
                            hover:text-gray-200 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
-                title='Descargar todas las operaciones como CSV'
+                title={hayFiltros ? 'Exportar operaciones filtradas' : 'Exportar todas las operaciones'}
               >
                 ↓ CSV
               </button>
               <button
-                onClick={() => exportarOperacionesExcel(operaciones)}
+                onClick={() => exportarOperacionesExcel(operacionesFiltradas)}
                 className='border border-green-800 hover:border-green-600 text-green-600
                            hover:text-green-400 text-sm font-medium py-2 px-4 rounded-xl transition-colors'
-                title='Descargar todas las operaciones como Excel'
+                title={hayFiltros ? 'Exportar operaciones filtradas' : 'Exportar todas las operaciones'}
               >
                 ↓ Excel
               </button>
@@ -521,6 +550,97 @@ export default function Historico() {
         />
       )}
 
+      {/* ── Barra de filtros — solo si hay operaciones ── */}
+      {operaciones.length > 0 && (
+        <div
+          className='bg-gray-900 border border-gray-800 rounded-xl p-4
+                        flex flex-wrap gap-3 items-end'
+        >
+          {/* Búsqueda por ticker */}
+          <div className='flex flex-col gap-1 flex-1 min-w-32'>
+            <label className='text-gray-500 text-xs'>Ticker</label>
+            <input
+              type='text'
+              placeholder='SAN, PEP...'
+              value={filtroBusqueda}
+              onChange={e => setFiltroBusqueda(e.target.value)}
+              className='bg-gray-800 border border-gray-700 rounded-lg px-3 py-2
+                         text-sm text-gray-300 outline-none focus:border-blue-500 w-full'
+            />
+          </div>
+
+          {/* Año fiscal */}
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-500 text-xs'>Año fiscal</label>
+            <select
+              value={filtroAnio}
+              onChange={e => setFiltroAnio(e.target.value)}
+              className={selectFiltro}
+            >
+              <option value=''>Todos</option>
+              {aniosDisponibles.map(a => (
+                <option
+                  key={a}
+                  value={a}
+                >
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Estado */}
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-500 text-xs'>Estado</label>
+            <select
+              value={filtroEstado}
+              onChange={e => setFiltroEstado(e.target.value)}
+              className={selectFiltro}
+            >
+              <option value=''>Todos</option>
+              <option value='ABIERTA'>Abiertas</option>
+              <option value='CERRADA'>Cerradas</option>
+            </select>
+          </div>
+
+          {/* Resultado */}
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-500 text-xs'>Resultado</label>
+            <select
+              value={filtroResultado}
+              onChange={e => setFiltroResultado(e.target.value)}
+              className={selectFiltro}
+            >
+              <option value=''>Todos</option>
+              <option value='GANADORA'>Ganadoras</option>
+              <option value='PERDEDORA'>Perdedoras</option>
+            </select>
+          </div>
+
+          {/* Botón limpiar — solo visible si hay filtros activos */}
+          {hayFiltros && (
+            <button
+              onClick={limpiarFiltros}
+              className='text-gray-500 hover:text-gray-300 text-sm px-3 py-2
+                         border border-gray-700 rounded-lg transition-colors'
+            >
+              ✕ Limpiar
+            </button>
+          )}
+
+          {/* Contador de resultados */}
+          <span className='text-gray-600 text-xs self-end pb-2 ml-auto'>
+            {operacionesFiltradas.length} de {operaciones.length} operaciones
+          </span>
+        </div>
+      )}
+
+      {/* ── Sin resultados tras filtrar ── */}
+      {operaciones.length > 0 && operacionesFiltradas.length === 0 && (
+        <p className='text-gray-500 text-center py-8'>No hay operaciones que coincidan con los filtros aplicados.</p>
+      )}
+
+      {/* ── Sin operaciones ── */}
       {operaciones.length === 0 && (
         <p className='text-gray-500 text-center py-12'>No hay operaciones registradas. Usa el botón de arriba para añadir la primera.</p>
       )}
@@ -564,8 +684,6 @@ export default function Historico() {
                     <p className='text-gray-500 text-sm'>Latente</p>
                   </div>
                 </div>
-
-                {/* Controles */}
                 <div className='flex items-center gap-3 mt-3 pt-3 border-t border-gray-800 flex-wrap'>
                   <input
                     type='number'
@@ -583,11 +701,9 @@ export default function Historico() {
                   >
                     Cerrar operación
                   </button>
-                  {/* ── NUEVO: botón editar ── */}
                   <button
                     onClick={() => setEditandoId(editandoId === op.id ? null : op.id)}
                     className='text-yellow-600 hover:text-yellow-400 text-sm px-2 py-1.5 transition-colors'
-                    title='Editar operación'
                   >
                     ✎ Editar
                   </button>
@@ -599,8 +715,6 @@ export default function Historico() {
                     Eliminar
                   </button>
                 </div>
-
-                {/* ── NUEVO: formulario de edición inline ── */}
                 {editandoId === op.id && (
                   <FormularioEdicion
                     operacion={op}
@@ -648,7 +762,6 @@ export default function Historico() {
                       {op.notas && <span className='text-gray-600 italic'>{op.notas}</span>}
                     </div>
                   </div>
-
                   <div className='flex items-center gap-4'>
                     <div className='text-right'>
                       <p className={`text-2xl font-bold ${(op.pnlEuros || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -661,12 +774,10 @@ export default function Historico() {
                       )}
                     </div>
                     <div className='flex flex-col gap-1 items-end'>
-                      {/* ── NUEVO: botón editar ── */}
                       <button
                         onClick={() => setEditandoId(editandoId === op.id ? null : op.id)}
                         className='text-yellow-600 hover:text-yellow-400 text-sm
                                    px-2 py-1 transition-colors'
-                        title='Editar operación'
                       >
                         ✎
                       </button>
@@ -674,15 +785,12 @@ export default function Historico() {
                         onClick={() => eliminarOperacion(op)}
                         className='text-red-800 hover:text-red-500 text-sm
                                    px-2 py-1 transition-colors'
-                        title='Eliminar operación'
                       >
                         ✕
                       </button>
                     </div>
                   </div>
                 </div>
-
-                {/* ── NUEVO: formulario de edición inline ── */}
                 {editandoId === op.id && (
                   <FormularioEdicion
                     operacion={op}

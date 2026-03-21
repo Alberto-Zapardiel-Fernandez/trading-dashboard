@@ -12,7 +12,8 @@ const NAV = [
     label: 'Operaciones',
     hijos: [
       { to: '/calculadora', label: 'Calculadora de entrada' },
-      { to: '/historico', label: 'Histórico' }
+      { to: '/historico', label: 'Histórico' },
+      { to: '/resumen-fiscal', label: 'Resumen fiscal' }
     ]
   },
   {
