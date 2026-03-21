@@ -3,14 +3,23 @@ import { collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 
 import { db } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { COLECCIONES } from '../config/constants'
+import { usePreciosVivos } from './../hooks/usePreciosVivos'
 
 export default function DCA() {
   const { usuario } = useAuth()
   const [aportaciones, setAportaciones] = useState([])
   const [precioActual, setPrecioActual] = useState('')
   const [form, setForm] = useState({ fecha: '', invertido: '', precioCompra: '' })
+  const [error, setError] = useState('')
+  const { precios } = usePreciosVivos(['VUSA.DE'])
 
-  // Escucha aportaciones en tiempo real
+  useEffect(() => {
+    if (precios['VUSA.DE']) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPrecioActual(precios['VUSA.DE'].toString())
+    }
+  }, [precios])
+
   useEffect(() => {
     if (!usuario) return
     const q = collection(db, 'users', usuario.uid, COLECCIONES.DCA)
@@ -21,7 +30,6 @@ export default function DCA() {
     return unsub
   }, [usuario])
 
-  // Cálculos acumulados
   const totalInvertido = aportaciones.reduce((s, a) => s + (a.invertido || 0), 0)
   const totalParticipaciones = aportaciones.reduce((s, a) => s + (a.participaciones || 0), 0)
   const precioMedio = totalParticipaciones > 0 ? totalInvertido / totalParticipaciones : 0
@@ -29,13 +37,25 @@ export default function DCA() {
   const pnl = valorActual - totalInvertido
   const pnlPct = totalInvertido > 0 ? (pnl / totalInvertido) * 100 : 0
 
-  // Añade una aportación
   const añadirAportacion = async () => {
     const invertido = parseFloat(form.invertido)
     const precioCompra = parseFloat(form.precioCompra)
-    if (!form.fecha || !invertido || !precioCompra) return
 
-    // Participaciones = dinero invertido / precio de compra (regla de oro)
+    // Validación con mensaje visible
+    if (!form.fecha) {
+      setError('Selecciona una fecha')
+      return
+    }
+    if (!invertido || invertido <= 0) {
+      setError('Introduce el importe invertido')
+      return
+    }
+    if (!precioCompra || precioCompra <= 0) {
+      setError('Introduce el precio de compra')
+      return
+    }
+
+    setError('')
     const participaciones = invertido / precioCompra
 
     await addDoc(collection(db, 'users', usuario.uid, COLECCIONES.DCA), {
@@ -111,7 +131,10 @@ export default function DCA() {
             <input
               type='date'
               value={form.fecha}
-              onChange={e => setForm({ ...form, fecha: e.target.value })}
+              onChange={e => {
+                setError('')
+                setForm({ ...form, fecha: e.target.value })
+              }}
               className='bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 outline-none'
             />
           </div>
@@ -121,7 +144,10 @@ export default function DCA() {
               type='number'
               step='0.01'
               value={form.invertido}
-              onChange={e => setForm({ ...form, invertido: e.target.value })}
+              onChange={e => {
+                setError('')
+                setForm({ ...form, invertido: e.target.value })
+              }}
               placeholder='99.29'
               className='bg-gray-800 border border-blue-700 rounded-lg px-3 py-2 text-blue-300 outline-none'
             />
@@ -132,12 +158,19 @@ export default function DCA() {
               type='number'
               step='0.001'
               value={form.precioCompra}
-              onChange={e => setForm({ ...form, precioCompra: e.target.value })}
+              onChange={e => {
+                setError('')
+                setForm({ ...form, precioCompra: e.target.value })
+              }}
               placeholder='111.485'
               className='bg-gray-800 border border-blue-700 rounded-lg px-3 py-2 text-blue-300 outline-none'
             />
           </div>
         </div>
+
+        {/* Mensaje de error */}
+        {error && <p className='text-red-400 text-xs mt-2'>⚠ {error}</p>}
+
         <button
           onClick={añadirAportacion}
           className='mt-3 bg-purple-700 hover:bg-purple-600 text-white font-medium py-2 px-5 rounded-lg transition-colors text-sm'
@@ -152,7 +185,7 @@ export default function DCA() {
           <table className='w-full text-sm'>
             <thead>
               <tr className='border-b border-gray-800'>
-                <th className='text-left text-gray-400 p-3 font-medium'>Fecha</th>
+                <th className='text-left  text-gray-400 p-3 font-medium'>Fecha</th>
                 <th className='text-right text-gray-400 p-3 font-medium'>Invertido</th>
                 <th className='text-right text-gray-400 p-3 font-medium'>Precio compra</th>
                 <th className='text-right text-gray-400 p-3 font-medium'>Participaciones</th>
@@ -163,7 +196,6 @@ export default function DCA() {
             </thead>
             <tbody>
               {aportaciones.map((a, i) => {
-                // Precio medio acumulado hasta esta fila
                 const invAcum = aportaciones.slice(0, i + 1).reduce((s, x) => s + x.invertido, 0)
                 const partAcum = aportaciones.slice(0, i + 1).reduce((s, x) => s + x.participaciones, 0)
                 const pmAcum = partAcum > 0 ? invAcum / partAcum : 0
@@ -174,7 +206,7 @@ export default function DCA() {
                     key={a.id}
                     className='border-b border-gray-800 last:border-0 hover:bg-gray-800/50'
                   >
-                    <td className='p-3 text-gray-300'>{a.fecha}</td>
+                    <td className='p-3 text-gray-300'>{a.fecha.split('-').reverse().join('-')}</td>
                     <td className='p-3 text-right text-blue-300'>{fmt2(a.invertido)} €</td>
                     <td className='p-3 text-right text-gray-300'>{fmt3(a.precioCompra)} €</td>
                     <td className='p-3 text-right text-cyan-400'>{a.participaciones?.toFixed(4)}</td>

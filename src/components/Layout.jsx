@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LogOut, ChevronDown, Menu, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 
@@ -46,8 +46,29 @@ const NAV = [
 export default function Layout({ children, usuario }) {
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const navRef = useRef(null)
+
   const [menuAbierto, setMenuAbierto] = useState(null)
   const [movil, setMovil] = useState(false)
+
+  // Cierra el menú al cambiar de ruta
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMenuAbierto(null)
+    setMovil(false)
+  }, [location.pathname])
+
+  // Cierra el menú al hacer clic fuera del nav
+  useEffect(() => {
+    const handler = e => {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        setMenuAbierto(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const handleLogout = async () => {
     await logout()
@@ -62,21 +83,23 @@ export default function Layout({ children, usuario }) {
     <div className='min-h-screen flex flex-col text-base'>
       <header className='bg-gray-900 border-b border-gray-800 sticky top-0 z-50'>
         <div className='max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-2'>
-          {/* Logo — solo icono en pantallas ajustadas */}
+          {/* Logo */}
           <span className='text-yellow-400 font-bold tracking-tight whitespace-nowrap shrink-0'>
             <span className='hidden lg:inline text-base'>⚡ Trading Dashboard</span>
             <span className='lg:hidden text-lg'>⚡</span>
           </span>
 
           {/* Navegación escritorio */}
-          <nav className='hidden md:flex items-center gap-0.5 flex-1 justify-center'>
+          <nav
+            ref={navRef}
+            className='hidden md:flex items-center gap-0.5 flex-1 justify-center'
+          >
             {NAV.map(item =>
               item.to ? (
                 <NavLink
                   key={item.to}
                   to={item.to}
                   end={item.exact}
-                  onClick={() => setMenuAbierto(null)}
                   className={({ isActive }) =>
                     `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                       isActive ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
@@ -109,7 +132,6 @@ export default function Layout({ children, usuario }) {
                         <NavLink
                           key={hijo.to}
                           to={hijo.to}
-                          onClick={() => setMenuAbierto(null)}
                           className={({ isActive }) =>
                             `block px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
                               isActive ? 'text-blue-400 bg-blue-600/10' : 'text-gray-300 hover:text-gray-100 hover:bg-gray-800'
@@ -141,7 +163,6 @@ export default function Layout({ children, usuario }) {
             >
               <LogOut size={15} />
             </button>
-
             <button
               onClick={() => setMovil(!movil)}
               className='md:hidden text-gray-400 hover:text-gray-100 p-1'
