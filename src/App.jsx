@@ -1,3 +1,4 @@
+// src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import Login from './pages/Login'
@@ -6,9 +7,11 @@ import Historico from './pages/Historico'
 import Calculadora from './pages/Calculadora'
 import DCA from './pages/DCA'
 import Movimientos from './pages/Movimientos'
+import Grafica from './pages/Grafica'
+import Radar from './pages/Radar'
 import Layout from './components/Layout'
-import Grafica from './pages/Grafica.jsx'
-import Radar from './pages/Radar.jsx'
+import { RadarProvider } from './context/RadarProvider'
+import Configuracion from './pages/Configuracion'
 
 export default function App() {
   const { usuario, cargando } = useAuth()
@@ -32,38 +35,44 @@ export default function App() {
           path='/*'
           element={
             usuario ? (
-              <Layout usuario={usuario}>
-                <Routes>
-                  <Route
-                    path='/'
-                    element={<Dashboard />}
-                  />
-                  <Route
-                    path='/historico'
-                    element={<Historico />}
-                  />
-                  <Route
-                    path='/calculadora'
-                    element={<Calculadora />}
-                  />
-                  <Route
-                    path='/dca'
-                    element={<DCA />}
-                  />
-                  <Route
-                    path='/movimientos'
-                    element={<Movimientos />}
-                  />
-                  <Route
-                    path='/grafica'
-                    element={<Grafica />}
-                  />
-                  <Route
-                    path='/radar'
-                    element={<Radar />}
-                  />
-                </Routes>
-              </Layout>
+              <RadarProvider>
+                <Layout usuario={usuario}>
+                  <Routes>
+                    <Route
+                      path='/'
+                      element={<Dashboard />}
+                    />
+                    <Route
+                      path='/historico'
+                      element={<Historico />}
+                    />
+                    <Route
+                      path='/calculadora'
+                      element={<Calculadora />}
+                    />
+                    <Route
+                      path='/dca'
+                      element={<DCA />}
+                    />
+                    <Route
+                      path='/movimientos'
+                      element={<Movimientos />}
+                    />
+                    <Route
+                      path='/grafica'
+                      element={<Grafica />}
+                    />
+                    <Route
+                      path='/radar'
+                      element={<Radar />}
+                    />
+                    <Route
+                      path='/configuracion'
+                      element={<Configuracion />}
+                    />
+                  </Routes>
+                </Layout>
+              </RadarProvider>
             ) : (
               <Navigate to='/login' />
             )

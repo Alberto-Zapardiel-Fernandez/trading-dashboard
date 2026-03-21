@@ -1,14 +1,8 @@
 // src/pages/Radar.jsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Radar de vigilancia de tickers con alertas técnicas y Telegram.
-// Muestra precio, RSI, SMA50/200, estado y alertas de stop/target.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { useState, useRef } from 'react'
-import { useRadar } from '../hooks/useRadar'
+import { useRadarContext } from '../hooks/useRadarContext.js'
 import { buscarTickers } from '../services/yahooFinance'
 
-// Etiquetas y colores por estado técnico
 const ESTADO_CONFIG = {
   SOBREVENTA: { label: '📉 Sobreventa', bg: 'bg-teal-900/40', text: 'text-teal-400', border: 'border-teal-800' },
   SOBRECOMPRA: { label: '📈 Sobrecompra', bg: 'bg-red-900/40', text: 'text-red-400', border: 'border-red-800' },
@@ -17,13 +11,11 @@ const ESTADO_CONFIG = {
   NEUTRAL: { label: '⚙️ Neutral', bg: 'bg-gray-800/40', text: 'text-gray-500', border: 'border-gray-700' }
 }
 
-// Badge de estado técnico
 function EstadoBadge({ estado }) {
   const cfg = ESTADO_CONFIG[estado] ?? ESTADO_CONFIG.NEUTRAL
   return <span className={`text-xs font-semibold px-2 py-1 rounded-full border ${cfg.bg} ${cfg.text} ${cfg.border}`}>{cfg.label}</span>
 }
 
-// Fila de un ticker en la tabla
 function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
   const d = datos[ticker.symbol]
   const [editando, setEditando] = useState(false)
@@ -35,7 +27,6 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
     setEditando(false)
   }
 
-  // Si el precio toca stop o target, resaltamos la fila
   const precio = d?.precioActual
   const tocaStop = precio && ticker.stop && precio <= ticker.stop
   const tocaTarget = precio && ticker.target && precio >= ticker.target
@@ -44,18 +35,15 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
 
   return (
     <tr className={`border-b border-gray-800 last:border-0 hover:bg-gray-800/30 transition-colors ${colorFila}`}>
-      {/* Ticker + nombre */}
       <td className='p-4'>
         <p className='font-bold text-cyan-400'>{ticker.symbol}</p>
         {ticker.nombre && <p className='text-gray-500 text-xs mt-0.5'>{ticker.nombre}</p>}
       </td>
 
-      {/* Precio actual */}
       <td className='p-4 text-right'>
         {d ? <span className='text-white font-bold'>{d.precioActual.toFixed(2)}</span> : <span className='text-gray-600 text-sm'>—</span>}
       </td>
 
-      {/* RSI */}
       <td className='p-4 text-right'>
         {d?.rsi != null ? (
           <span className={`font-medium ${d.rsi < 30 ? 'text-teal-400' : d.rsi > 70 ? 'text-red-400' : 'text-gray-300'}`}>{d.rsi.toFixed(1)}</span>
@@ -64,7 +52,6 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
         )}
       </td>
 
-      {/* SMA50 / SMA200 */}
       <td className='p-4 text-right text-sm'>
         {d?.sma50 != null ? (
           <div className='flex flex-col items-end gap-0.5'>
@@ -76,7 +63,6 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
         )}
       </td>
 
-      {/* Stop / Target */}
       <td className='p-4 text-right text-sm'>
         {editando ? (
           <div className='flex flex-col gap-1 items-end'>
@@ -117,10 +103,8 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
         )}
       </td>
 
-      {/* Estado técnico */}
       <td className='p-4 text-center'>{d ? <EstadoBadge estado={d.estado} /> : <span className='text-gray-600 text-sm'>Cargando...</span>}</td>
 
-      {/* Acciones */}
       <td className='p-4 text-right'>
         <button
           onClick={() => onEliminar(ticker.id)}
@@ -135,7 +119,7 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
 }
 
 export default function Radar() {
-  const { tickers, datos, cargando, añadirTicker, eliminarTicker, actualizarStopTarget } = useRadar()
+  const { tickers, datos, cargando, añadirTicker, eliminarTicker, actualizarStopTarget } = useRadarContext()
 
   const [input, setInput] = useState('')
   const [sugerencias, setSugerencias] = useState([])
@@ -145,13 +129,13 @@ export default function Radar() {
   const debounceRef = useRef(null)
 
   const buscarSugerencias = async query => {
-    clearTimeout(debounceRef[0])
+    clearTimeout(debounceRef.current)
     if (query.length < 2) {
       setSugerencias([])
       setMostrarSug(false)
       return
     }
-    debounceRef[0] = setTimeout(async () => {
+    debounceRef.current = setTimeout(async () => {
       setBuscandoSug(true)
       const res = await buscarTickers(query)
       setSugerencias(res)
@@ -169,7 +153,6 @@ export default function Radar() {
 
   const handleAñadir = async () => {
     if (!input.trim()) return
-    // Evitamos duplicados
     if (tickers.some(t => t.symbol === input.toUpperCase().trim())) return
     await añadirTicker(input.trim(), nombreSeleccionado)
     setInput('')
@@ -178,14 +161,12 @@ export default function Radar() {
 
   return (
     <div className='flex flex-col gap-6 py-4'>
-      {/* ── Cabecera ── */}
       <div className='flex items-center justify-between flex-wrap gap-3'>
         <div>
           <h1 className='text-2xl font-bold text-white'>Radar de vigilancia</h1>
           <p className='text-gray-500 text-sm mt-1'>Seguimiento técnico automático · Alertas Telegram cuando cambia el estado</p>
         </div>
 
-        {/* Buscador para añadir ticker */}
         <div className='relative'>
           <div className='flex gap-2'>
             <div className='relative'>
@@ -230,7 +211,6 @@ export default function Radar() {
         </div>
       </div>
 
-      {/* ── Tabla ── */}
       {cargando ? (
         <p className='text-gray-500 text-sm'>Cargando radar...</p>
       ) : tickers.length === 0 ? (
@@ -271,7 +251,6 @@ export default function Radar() {
         </div>
       )}
 
-      {/* ── Leyenda ── */}
       {tickers.length > 0 && (
         <div className='flex flex-wrap gap-3'>
           {Object.entries(ESTADO_CONFIG).map(([key, cfg]) => (

@@ -17,7 +17,7 @@ const INTERVALO_FX_MS = 30_000
 
 export function useConfig() {
   const { usuario } = useAuth()
-  const [config, setConfig] = useState({ fxEurUsd: 1.15 })
+  const [config, setConfig] = useState({ fxEurUsd: 1.15, telegramChatId: '' })
   const [cargando, setCargando] = useState(true)
 
   // Guardamos la referencia del usuario para usarla dentro del intervalo

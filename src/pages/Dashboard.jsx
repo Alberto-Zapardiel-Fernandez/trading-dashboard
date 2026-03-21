@@ -7,7 +7,6 @@ import { COLECCIONES } from '../config/constants'
 import { useMovimientos } from '../hooks/useMovimientos'
 import EquityCurve from '../components/EquityCurve.jsx'
 
-// Tarjeta de métrica reutilizable
 function Tarjeta({ titulo, valor, subtitulo, color = 'text-white' }) {
   return (
     <div className='bg-gray-900 border border-gray-800 rounded-xl p-5'>
@@ -24,7 +23,6 @@ export default function Dashboard() {
   const [operaciones, setOperaciones] = useState([])
   const { totalMovimientos } = useMovimientos()
 
-  // Escucha operaciones en tiempo real
   useEffect(() => {
     if (!usuario) return
     const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.OPERACIONES), snap =>
@@ -33,7 +31,6 @@ export default function Dashboard() {
     return unsub
   }, [usuario])
 
-  // Cálculos principales
   const cerradas = operaciones.filter(o => o.estado === 'CERRADA')
   const abiertas = operaciones.filter(o => o.estado === 'ABIERTA')
   const pnlRealizado = cerradas.reduce((s, o) => s + (o.pnlEuros || 0), 0)
@@ -48,7 +45,7 @@ export default function Dashboard() {
 
   return (
     <div className='flex flex-col gap-6 py-4'>
-      {/* ── Configuración de saldo ── */}
+      {/* ── EUR/USD ── */}
       <div className='flex items-center gap-3 flex-wrap'>
         <label className='text-gray-400 text-sm ml-4'>EUR/USD:</label>
         <input
@@ -58,7 +55,7 @@ export default function Dashboard() {
           onBlur={e => actualizarConfig({ fxEurUsd: parseFloat(e.target.value) || 1 })}
           className='bg-gray-800 border border-yellow-600 rounded-lg px-3 py-1.5 text-yellow-400 font-bold w-28 text-center'
         />
-        <span className='text-gray-600 text-xs'>Los cambios se guardan automáticamente</span>
+        <span className='text-gray-600 text-xs'>Se actualiza automáticamente · ajusta si lo necesitas</span>
       </div>
 
       {/* ── Métricas de capital ── */}
@@ -122,11 +119,11 @@ export default function Dashboard() {
             <table className='w-full'>
               <thead>
                 <tr className='border-b border-gray-800'>
-                  <th className='text-left text-gray-400 p-4 font-medium'>Ticker</th>
-                  <th className='text-right text-gray-400 p-4 font-medium'>Entrada</th>
-                  <th className='text-right text-gray-400 p-4 font-medium'>Actual</th>
-                  <th className='text-right text-gray-400 p-4 font-medium'>P&L €</th>
-                  <th className='text-right text-gray-400 p-4 font-medium'>P&L %</th>
+                  <th className='text-left   text-gray-400 p-4 font-medium'>Ticker</th>
+                  <th className='text-right  text-gray-400 p-4 font-medium'>Entrada</th>
+                  <th className='text-right  text-gray-400 p-4 font-medium'>Actual</th>
+                  <th className='text-right  text-gray-400 p-4 font-medium'>P&L €</th>
+                  <th className='text-right  text-gray-400 p-4 font-medium'>P&L %</th>
                 </tr>
               </thead>
               <tbody>
@@ -160,7 +157,7 @@ export default function Dashboard() {
             <table className='w-full'>
               <thead>
                 <tr className='border-b border-gray-800'>
-                  <th className='text-left text-gray-400 p-4 font-medium'>Ticker</th>
+                  <th className='text-left  text-gray-400 p-4 font-medium'>Ticker</th>
                   <th className='text-right text-gray-400 p-4 font-medium'>Entrada</th>
                   <th className='text-right text-gray-400 p-4 font-medium'>Cierre</th>
                   <th className='text-right text-gray-400 p-4 font-medium'>P&L €</th>
@@ -193,6 +190,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
       {/* ── Equity curve ── */}
       <EquityCurve
         cerradas={cerradas}

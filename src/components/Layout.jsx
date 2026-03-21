@@ -25,7 +25,8 @@ const NAV = [
       { to: '/dca', label: 'DCA VUSA' },
       { to: '/movimientos', label: 'Libro de caja' }
     ]
-  }
+  },
+  { label: 'Configuración', to: '/configuracion', exact: false }
 ]
 
 export default function Layout({ children, usuario }) {

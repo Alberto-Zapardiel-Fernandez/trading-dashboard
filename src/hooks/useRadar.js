@@ -1,72 +1,81 @@
+// src/hooks/useRadar.js
 // ─────────────────────────────────────────────────────────────────────────────
 // Hook para el radar de vigilancia de tickers.
-// Gestiona la lista de tickers vigilados en Firestore y calcula su estado
-// técnico (RSI, SMA50/200, cruces) con precios en tiempo real de Yahoo.
-// Las alertas Telegram solo se envían cuando el estado CAMBIA.
+// - Chat ID por usuario (guardado en Firestore/config)
+// - Silencio nocturno entre 00:00 y 08:00
+// - Mensaje de buenos días a las 08:00 con resumen de cartera y mercado
+// - Alertas solo cuando cambia el estado técnico
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuth } from './useAuth'
+import { useConfig } from './useConfig'
 import { COLECCIONES } from '../config/constants'
-import { obtenerVelas } from '../services/yahooFinance'
+import { obtenerVelas, obtenerPrecio } from '../services/yahooFinance'
 import { calcularSMA, calcularRSI } from '../services/indicadores'
 
-// ── Configuración Telegram ────────────────────────────────────────────────────
 const TELEGRAM_TOKEN = import.meta.env.VITE_TELEGRAM_TOKEN
-const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID
+const INTERVALO_MS = 30_000
 
-async function enviarTelegram(mensaje) {
+// ── Utilidades de tiempo ──────────────────────────────────────────────────────
+
+function esHorarioNocturno() {
+  const hora = new Date().getHours()
+  return hora >= 0 && hora < 8
+}
+
+function esHoraBuenosDias() {
+  const ahora = new Date()
+  return ahora.getHours() === 8 && ahora.getMinutes() === 0
+}
+
+// ── Telegram ──────────────────────────────────────────────────────────────────
+
+async function enviarTelegram(chatId, mensaje) {
+  if (!chatId || !TELEGRAM_TOKEN) return
+  if (esHorarioNocturno()) {
+    console.log('[Telegram] Silencio nocturno, mensaje no enviado')
+    return
+  }
   try {
-    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`
-    await fetch(url, {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
+        chat_id: chatId,
         text: mensaje,
         parse_mode: 'Markdown'
       })
     })
   } catch (err) {
-    console.error('[Telegram] Error enviando mensaje:', err)
+    console.error('[Telegram] Error:', err)
   }
 }
 
 // ── Lógica de estado técnico ──────────────────────────────────────────────────
 
-/**
- * Calcula el estado técnico de un ticker a partir de sus velas.
- * Devuelve un objeto con todos los valores y el estado final.
- */
 function calcularEstado(velas) {
   if (!velas || velas.length < 15) return null
 
   const precioActual = velas[velas.length - 1].close
-
-  // RSI
   const rsiArr = calcularRSI(velas, 14)
-  const rsi = rsiArr.length > 0 ? rsiArr[rsiArr.length - 1].value : null
-
-  // SMA50 y SMA200
   const sma50Arr = calcularSMA(velas, 50)
   const sma200Arr = calcularSMA(velas, 200)
+
+  const rsi = rsiArr.length > 0 ? rsiArr[rsiArr.length - 1].value : null
   const sma50 = sma50Arr.length > 0 ? sma50Arr[sma50Arr.length - 1].value : null
   const sma200 = sma200Arr.length > 0 ? sma200Arr[sma200Arr.length - 1].value : null
 
-  // Cruces: comparamos el último y el penúltimo punto donde ambas SMAs existen
   let cruce = null
   if (sma50Arr.length >= 2 && sma200Arr.length >= 2) {
-    // Buscamos el punto anterior común
     const sma50Prev = sma50Arr[sma50Arr.length - 2].value
     const sma200Prev = sma200Arr[sma200Arr.length - 2].value
-
     if (sma50Prev <= sma200Prev && sma50 > sma200) cruce = 'DORADO'
     if (sma50Prev >= sma200Prev && sma50 < sma200) cruce = 'MUERTE'
   }
 
-  // Determinar estado (misma lógica que el Python)
   let estado, color
   if (rsi !== null && rsi < 30) {
     estado = 'SOBREVENTA'
@@ -88,30 +97,30 @@ function calcularEstado(velas) {
   return { precioActual, rsi, sma50, sma200, cruce, estado, color }
 }
 
-// Mensajes de Telegram por estado
-const MENSAJES_TELEGRAM = {
+const MENSAJES_ESTADO = {
   SOBREVENTA: (t, r) => `📉 *${t}* en SOBREVENTA (RSI: ${r?.toFixed(1)}). Posible rebote.`,
   SOBRECOMPRA: (t, r) => `📈 *${t}* en SOBRECOMPRA (RSI: ${r?.toFixed(1)}). Precaución.`,
   CRUCE_DORADO: t => `✨ *${t}* — ¡CRUCE DORADO! Tendencia alcista confirmada.`,
   CRUCE_MUERTE: t => `💀 *${t}* — ¡CRUCE DE LA MUERTE! Posible caída.`
 }
 
-// Intervalo de actualización en ms
-const INTERVALO_MS = 30_000
+// ── Hook principal ────────────────────────────────────────────────────────────
 
 export function useRadar() {
   const { usuario } = useAuth()
-
-  // Lista de tickers guardados en Firestore
+  const { config } = useConfig()
   const [tickers, setTickers] = useState([])
-  // Datos técnicos calculados para cada ticker { [symbol]: { precioActual, rsi, ... } }
   const [datos, setDatos] = useState({})
   const [cargando, setCargando] = useState(true)
 
-  // Memoria de estados anteriores para no repetir alertas Telegram
   const memoriaEstados = useRef({})
+  const buenosDiasEnviado = useRef(false)
+  // Guardamos los datos en un ref para acceder a ellos dentro del intervalo
+  const datosRef = useRef({})
 
-  // ── 1. Suscripción a Firestore ────────────────────────────────────────────
+  const chatId = config?.telegramChatId || ''
+
+  // ── Suscripción Firestore ─────────────────────────────────────────────────
   useEffect(() => {
     if (!usuario) return
     const ref = collection(db, 'users', usuario.uid, COLECCIONES.RADAR)
@@ -122,49 +131,93 @@ export function useRadar() {
     return unsub
   }, [usuario])
 
-  // ── 2. Actualización de datos técnicos ───────────────────────────────────
-  const actualizarDatos = useCallback(async () => {
+  // Mantenemos datosRef sincronizado con el estado
+  useEffect(() => {
+    datosRef.current = datos
+  }, [datos])
+
+  // ── Intervalo de actualización ────────────────────────────────────────────
+  useEffect(() => {
+    console.log('[Radar] useEffect tickers:', tickers.length, '| chatId:', chatId)
     if (tickers.length === 0) return
 
-    const nuevosDatos = {}
+    const actualizarDatos = async () => {
+      // ── Buenos días ──────────────────────────────────────────────────────
+      if (esHoraBuenosDias() && !buenosDiasEnviado.current && chatId) {
+        buenosDiasEnviado.current = true
 
-    await Promise.allSettled(
-      tickers.map(async ticker => {
-        const velas = await obtenerVelas(ticker.symbol, '1D')
-        if (!velas) return
+        const sp500 = await obtenerPrecio('^GSPC')
 
-        const estado = calcularEstado(velas)
-        if (!estado) return
+        const lineasCartera = tickers
+          .map(t => {
+            const d = datosRef.current[t.symbol]
+            return `🔹 *${t.symbol}*: ${d?.precioActual?.toFixed(2) ?? '...'}`
+          })
+          .join('\n')
 
-        nuevosDatos[ticker.symbol] = estado
+        const fecha = new Date().toLocaleDateString('es-ES', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
 
-        // Alertas Telegram solo si el estado cambia
-        const estadoAnterior = memoriaEstados.current[ticker.symbol]
-        if (estado.estado !== estadoAnterior && estado.estado !== 'NEUTRAL') {
-          const msg = MENSAJES_TELEGRAM[estado.estado]
-          if (msg) await enviarTelegram(msg(ticker.symbol, estado.rsi))
-          memoriaEstados.current[ticker.symbol] = estado.estado
-        }
-      })
-    )
+        const mensaje = [
+          `☀️ *Trading Dashboard — Buenos días*`,
+          `📅 ${fecha}`,
+          ``,
+          `📊 *Radar activo:*`,
+          lineasCartera,
+          ``,
+          `🌎 *Mercado:*`,
+          sp500 ? `🇺🇸 S&P 500: ${sp500.toFixed(2)} pts` : `🇺🇸 S&P 500: sin datos`,
+          ``,
+          `🚀 Radar vigilando ${tickers.length} tickers.`
+        ].join('\n')
 
-    setDatos(prev => ({ ...prev, ...nuevosDatos }))
-  }, [tickers])
+        await enviarTelegram(chatId, mensaje)
+      }
 
-  // Actualización inicial y cada 30 segundos
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+      // Resetear flag a las 09:00 para el día siguiente
+      if (new Date().getHours() === 9) buenosDiasEnviado.current = false
+
+      // ── Actualización técnica ─────────────────────────────────────────
+      const nuevosDatos = {}
+      await Promise.allSettled(
+        tickers.map(async ticker => {
+          const velas = await obtenerVelas(ticker.symbol, '1D')
+          if (!velas) return
+
+          const estado = calcularEstado(velas)
+          if (!estado) return
+
+          nuevosDatos[ticker.symbol] = estado
+          const anterior = memoriaEstados.current[ticker.symbol]
+          if (estado.estado !== anterior && estado.estado !== 'NEUTRAL' && chatId) {
+            const msg = MENSAJES_ESTADO[estado.estado]
+            if (msg) await enviarTelegram(chatId, msg(ticker.symbol, estado.rsi))
+            memoriaEstados.current[ticker.symbol] = estado.estado
+          }
+        })
+      )
+
+      setDatos(prev => ({ ...prev, ...nuevosDatos }))
+    }
+
     actualizarDatos()
     const intervalo = setInterval(actualizarDatos, INTERVALO_MS)
     return () => clearInterval(intervalo)
-  }, [actualizarDatos])
+  }, [tickers, chatId])
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
-
   const añadirTicker = async (symbol, nombre = '', stop = null, target = null) => {
     if (!usuario) return
-    const ref = collection(db, 'users', usuario.uid, COLECCIONES.RADAR)
-    await addDoc(ref, { symbol: symbol.toUpperCase(), nombre, stop, target })
+    await addDoc(collection(db, 'users', usuario.uid, COLECCIONES.RADAR), {
+      symbol: symbol.toUpperCase(),
+      nombre,
+      stop,
+      target
+    })
   }
 
   const eliminarTicker = async id => {
@@ -177,12 +230,5 @@ export function useRadar() {
     await updateDoc(doc(db, 'users', usuario.uid, COLECCIONES.RADAR, id), { stop, target })
   }
 
-  return {
-    tickers,
-    datos,
-    cargando,
-    añadirTicker,
-    eliminarTicker,
-    actualizarStopTarget
-  }
+  return { tickers, datos, cargando, añadirTicker, eliminarTicker, actualizarStopTarget }
 }
