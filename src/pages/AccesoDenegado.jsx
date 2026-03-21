@@ -2,8 +2,8 @@
 // Pantalla que ve un usuario que ha hecho login con Google pero cuyo
 // email no está en la whitelist de Firestore.
 //
-// Muestra su email para que pueda comunicarlo al administrador,
-// y ofrece un botón para cerrar sesión y volver al login.
+// Informa al usuario de que el administrador ha sido notificado
+// y muestra su email para que pueda hacer seguimiento.
 
 import { useAuth } from '../hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
@@ -27,11 +27,14 @@ export default function AccesoDenegado() {
         <h1 className='text-xl font-semibold text-gray-100 mb-2'>Acceso no autorizado</h1>
 
         {/* Descripción */}
-        <p className='text-gray-400 text-sm mb-6'>
-          Tu cuenta no tiene permiso para acceder a esta aplicación. Contacta con el administrador para solicitar acceso.
-        </p>
+        <p className='text-gray-400 text-sm mb-4'>Tu cuenta no tiene permiso para acceder a esta aplicación.</p>
 
-        {/* Email del usuario — útil para que lo comunique al admin */}
+        {/* Aviso de notificación — informa de que el admin ya lo sabe */}
+        <div className='bg-blue-950/40 border border-blue-800/50 rounded-lg px-4 py-3 mb-4'>
+          <p className='text-blue-400 text-sm'>✅ El administrador ha sido notificado automáticamente y revisará tu solicitud en breve.</p>
+        </div>
+
+        {/* Email del usuario — útil para que haga seguimiento */}
         {usuario?.email && (
           <div className='bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 mb-6'>
             <p className='text-xs text-gray-500 mb-1'>Cuenta utilizada</p>
