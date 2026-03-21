@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useConfig } from '../hooks/useConfig'
 import { COLECCIONES } from '../config/constants'
 import { useMovimientos } from '../hooks/useMovimientos'
+import EquityCurve from '../components/EquityCurve.jsx'
 
 // Tarjeta de métrica reutilizable
 function Tarjeta({ titulo, valor, subtitulo, color = 'text-white' }) {
@@ -192,6 +193,11 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      {/* ── Equity curve ── */}
+      <EquityCurve
+        cerradas={cerradas}
+        saldoBase={totalMovimientos}
+      />
     </div>
   )
 }
