@@ -1,0 +1,38 @@
+# .github/workflows/alertas-radar.yml
+# Workflow que ejecuta el script de alertas cada 30 minutos.
+# 30 min = 1440 ejecuciones/mes × ~1 min cada una = 1440 min/mes
+# El plan gratuito de GitHub incluye 2000 min/mes para repos privados → seguro ✅
+
+name: Alertas Radar
+
+on:
+  # Ejecución automática cada 30 minutos
+  schedule:
+    - cron: '*/30 * * * *'
+  # Permite lanzarlo manualmente desde GitHub Actions para probar
+  workflow_dispatch:
+
+jobs:
+  alertas:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependencias del script
+        working-directory: scripts
+        run: npm install
+
+      - name: Ejecutar comprobación de alertas
+        working-directory: scripts
+        env:
+          # Secrets configurados en GitHub → Settings → Secrets and variables → Actions
+          VITE_TELEGRAM_TOKEN: ${{ secrets.VITE_TELEGRAM_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node alertas.mjs
