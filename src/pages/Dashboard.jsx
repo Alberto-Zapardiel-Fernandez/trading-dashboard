@@ -6,7 +6,6 @@ import { useConfig } from '../hooks/useConfig'
 import { COLECCIONES } from '../config/constants'
 import { useMovimientos } from '../hooks/useMovimientos'
 import EquityCurve from '../components/EquityCurve.jsx'
-// ── NUEVO ──
 import { useModoPrivado } from '../context/ModoPrivadoContext'
 
 function Tarjeta({ titulo, valor, subtitulo, color = 'text-white' }) {
@@ -24,7 +23,6 @@ export default function Dashboard() {
   const { config, actualizarConfig } = useConfig()
   const [operaciones, setOperaciones] = useState([])
   const { totalMovimientos } = useMovimientos()
-  // ── NUEVO ──
   const { ocultar } = useModoPrivado()
 
   useEffect(() => {
@@ -49,7 +47,7 @@ export default function Dashboard() {
 
   return (
     <div className='flex flex-col gap-6 py-4'>
-      {/* ── EUR/USD — no es sensible ── */}
+      {/* ── EUR/USD ── */}
       <div className='flex items-center gap-3 flex-wrap'>
         <label className='text-gray-400 text-sm ml-4'>EUR/USD:</label>
         <input
@@ -57,7 +55,8 @@ export default function Dashboard() {
           step='0.0001'
           defaultValue={config.fxEurUsd}
           onBlur={e => actualizarConfig({ fxEurUsd: parseFloat(e.target.value) || 1 })}
-          className='bg-gray-800 border border-yellow-600 rounded-lg px-3 py-1.5 text-yellow-400 font-bold w-28 text-center'
+          className='bg-gray-800 border border-yellow-600 rounded-lg px-3 py-1.5
+                     text-yellow-400 font-bold w-28 text-center'
         />
         <span className='text-gray-600 text-xs'>Se actualiza automáticamente · ajusta si lo necesitas</span>
       </div>
@@ -119,7 +118,43 @@ export default function Dashboard() {
       {abiertas.length > 0 && (
         <div>
           <h2 className='text-lg font-bold text-gray-200 mb-3'>Posiciones abiertas</h2>
-          <div className='bg-gray-900 border border-gray-800 rounded-xl overflow-hidden'>
+
+          {/* Móvil: tarjetas */}
+          <div className='flex flex-col gap-3 md:hidden'>
+            {abiertas.map(op => (
+              <div
+                key={op.id}
+                className='bg-gray-900 border border-blue-900 rounded-xl p-4
+                           flex flex-col gap-2'
+              >
+                <div className='flex justify-between items-start'>
+                  <span className='font-bold text-cyan-400 text-base'>{op.ticker}</span>
+                  <span className={`text-lg font-bold ${(op.pnlVivo || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {ocultar(fmt(op.pnlVivo || 0))}
+                  </span>
+                </div>
+                <div className='flex gap-4 text-sm text-gray-400 flex-wrap'>
+                  <span>
+                    Entrada <span className='text-gray-200'>{op.precioEntrada?.toFixed(3)}</span>
+                  </span>
+                  <span>
+                    Actual <span className='text-yellow-400'>{op.precioActual ? op.precioActual.toFixed(3) : '—'}</span>
+                  </span>
+                  {op.inversion > 0 && (
+                    <span className={op.pnlVivo >= 0 ? 'text-green-400' : 'text-red-400'}>
+                      {ocultar(`${(((op.pnlVivo || 0) / op.inversion) * 100).toFixed(2)}%`)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Escritorio: tabla */}
+          <div
+            className='hidden md:block bg-gray-900 border border-gray-800
+                          rounded-xl overflow-hidden'
+          >
             <table className='w-full'>
               <thead>
                 <tr className='border-b border-gray-800'>
@@ -157,7 +192,51 @@ export default function Dashboard() {
       {cerradas.length > 0 && (
         <div>
           <h2 className='text-lg font-bold text-gray-200 mb-3'>Últimas operaciones cerradas</h2>
-          <div className='bg-gray-900 border border-gray-800 rounded-xl overflow-hidden'>
+
+          {/* Móvil: tarjetas */}
+          <div className='flex flex-col gap-3 md:hidden'>
+            {cerradas
+              .slice(-5)
+              .reverse()
+              .map(op => (
+                <div
+                  key={op.id}
+                  className='bg-gray-900 border border-gray-800 rounded-xl p-4
+                           flex flex-col gap-2'
+                >
+                  <div className='flex justify-between items-start'>
+                    <div>
+                      <span className='font-bold text-cyan-400'>{op.ticker}</span>
+                      {op.fechaApertura && <span className='text-gray-600 text-xs ml-2'>{op.fechaApertura}</span>}
+                    </div>
+                    <div className='text-right'>
+                      <p className={`font-bold ${(op.pnlEuros || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {ocultar(`${(op.pnlEuros || 0) >= 0 ? '+' : ''}${fmt(op.pnlEuros || 0)}`)}
+                      </p>
+                      {op.inversion > 0 && (
+                        <p className={`text-xs ${(op.pnlEuros || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {ocultar(`${(((op.pnlEuros || 0) / op.inversion) * 100).toFixed(2)}%`)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className='flex gap-4 text-sm text-gray-400'>
+                    <span>
+                      Entrada <span className='text-gray-200'>{op.precioEntrada?.toFixed(3)}</span>
+                    </span>
+                    <span>
+                      Cierre <span className='text-gray-200'>{op.precioCierre?.toFixed(3)}</span>
+                    </span>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {/* Escritorio: tabla */}
+          <div
+            className='hidden md:block bg-gray-900 border border-gray-800
+                          rounded-xl overflow-hidden'
+          >
             <table className='w-full'>
               <thead>
                 <tr className='border-b border-gray-800'>
@@ -194,7 +273,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Equity curve ── */}
       <EquityCurve
         cerradas={cerradas}
         saldoBase={totalMovimientos}

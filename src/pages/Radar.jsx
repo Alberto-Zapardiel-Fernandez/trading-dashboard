@@ -13,9 +13,17 @@ const ESTADO_CONFIG = {
 
 function EstadoBadge({ estado }) {
   const cfg = ESTADO_CONFIG[estado] ?? ESTADO_CONFIG.NEUTRAL
-  return <span className={`text-xs font-semibold px-2 py-1 rounded-full border ${cfg.bg} ${cfg.text} ${cfg.border}`}>{cfg.label}</span>
+  return (
+    <span
+      className={`text-xs font-semibold px-2 py-1 rounded-full border
+                      ${cfg.bg} ${cfg.text} ${cfg.border}`}
+    >
+      {cfg.label}
+    </span>
+  )
 }
 
+// ── Fila para tabla escritorio (sin cambios) ──
 function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
   const d = datos[ticker.symbol]
   const [editando, setEditando] = useState(false)
@@ -30,11 +38,13 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
   const precio = d?.precioActual
   const tocaStop = precio && ticker.stop && precio <= ticker.stop
   const tocaTarget = precio && ticker.target && precio >= ticker.target
-
   const colorFila = tocaTarget ? 'border-l-2 border-l-green-500' : tocaStop ? 'border-l-2 border-l-red-500' : ''
 
   return (
-    <tr className={`border-b border-gray-800 last:border-0 hover:bg-gray-800/30 transition-colors ${colorFila}`}>
+    <tr
+      className={`border-b border-gray-800 last:border-0 hover:bg-gray-800/30
+                    transition-colors ${colorFila}`}
+    >
       <td className='p-4'>
         <p className='font-bold text-cyan-400'>{ticker.symbol}</p>
         {ticker.nombre && <p className='text-gray-500 text-xs mt-0.5'>{ticker.nombre}</p>}
@@ -71,18 +81,21 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
               placeholder='Stop'
               value={stop}
               onChange={e => setStop(e.target.value)}
-              className='bg-gray-800 border border-red-800 rounded px-2 py-1 text-red-400 w-24 text-right text-xs'
+              className='bg-gray-800 border border-red-800 rounded px-2 py-1
+                         text-red-400 w-24 text-right text-xs'
             />
             <input
               type='number'
               placeholder='Target'
               value={target}
               onChange={e => setTarget(e.target.value)}
-              className='bg-gray-800 border border-green-800 rounded px-2 py-1 text-green-400 w-24 text-right text-xs'
+              className='bg-gray-800 border border-green-800 rounded px-2 py-1
+                         text-green-400 w-24 text-right text-xs'
             />
             <button
               onClick={guardar}
-              className='text-xs bg-yellow-600 hover:bg-yellow-500 text-black font-bold px-2 py-1 rounded'
+              className='text-xs bg-yellow-600 hover:bg-yellow-500 text-black
+                         font-bold px-2 py-1 rounded'
             >
               Guardar
             </button>
@@ -115,6 +128,111 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
         </button>
       </td>
     </tr>
+  )
+}
+
+// ── Tarjeta para móvil — misma info, diseño vertical ──
+function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget }) {
+  const d = datos[ticker.symbol]
+  const [editando, setEditando] = useState(false)
+  const [stop, setStop] = useState(ticker.stop ?? '')
+  const [target, setTarget] = useState(ticker.target ?? '')
+
+  const guardar = () => {
+    onActualizarStopTarget(ticker.id, stop !== '' ? parseFloat(stop) : null, target !== '' ? parseFloat(target) : null)
+    setEditando(false)
+  }
+
+  const precio = d?.precioActual
+  const tocaStop = precio && ticker.stop && precio <= ticker.stop
+  const tocaTarget = precio && ticker.target && precio >= ticker.target
+
+  const bordeColor = tocaTarget ? 'border-l-4 border-l-green-500' : tocaStop ? 'border-l-4 border-l-red-500' : ''
+
+  return (
+    <div
+      className={`bg-gray-900 border border-gray-800 rounded-xl p-4
+                     flex flex-col gap-3 ${bordeColor}`}
+    >
+      {/* Fila 1: ticker + precio + eliminar */}
+      <div className='flex items-start justify-between'>
+        <div>
+          <span className='font-bold text-cyan-400 text-base'>{ticker.symbol}</span>
+          {ticker.nombre && <p className='text-gray-500 text-xs mt-0.5'>{ticker.nombre}</p>}
+        </div>
+        <div className='flex items-center gap-3'>
+          {d && <span className='text-white font-bold text-lg'>{d.precioActual.toFixed(2)}</span>}
+          <button
+            onClick={() => onEliminar(ticker.id)}
+            className='text-gray-600 hover:text-red-400 transition-colors'
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Fila 2: RSI + SMAs + Estado */}
+      <div className='flex items-center gap-3 flex-wrap'>
+        {d?.rsi != null && (
+          <span className={`text-sm font-medium ${d.rsi < 30 ? 'text-teal-400' : d.rsi > 70 ? 'text-red-400' : 'text-gray-300'}`}>
+            RSI {d.rsi.toFixed(1)}
+          </span>
+        )}
+        {d?.sma50 != null && <span className='text-xs text-yellow-400'>SMA50 {d.sma50.toFixed(2)}</span>}
+        {d?.sma200 != null && <span className='text-xs text-blue-400'>SMA200 {d.sma200.toFixed(2)}</span>}
+        {d && <EstadoBadge estado={d.estado} />}
+        {!d && <span className='text-gray-600 text-xs'>Cargando...</span>}
+      </div>
+
+      {/* Fila 3: SL / TP */}
+      {editando ? (
+        <div className='flex gap-2 flex-wrap items-end'>
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-500 text-xs'>Stop Loss</label>
+            <input
+              type='number'
+              placeholder='—'
+              value={stop}
+              onChange={e => setStop(e.target.value)}
+              className='bg-gray-800 border border-red-800 rounded px-2 py-1
+                         text-red-400 w-28 text-sm'
+            />
+          </div>
+          <div className='flex flex-col gap-1'>
+            <label className='text-gray-500 text-xs'>Take Profit</label>
+            <input
+              type='number'
+              placeholder='—'
+              value={target}
+              onChange={e => setTarget(e.target.value)}
+              className='bg-gray-800 border border-green-800 rounded px-2 py-1
+                         text-green-400 w-28 text-sm'
+            />
+          </div>
+          <button
+            onClick={guardar}
+            className='bg-yellow-600 hover:bg-yellow-500 text-black
+                       font-bold px-3 py-1.5 rounded text-sm'
+          >
+            Guardar
+          </button>
+        </div>
+      ) : (
+        <div
+          className='flex gap-4 cursor-pointer'
+          onClick={() => setEditando(true)}
+          title='Toca para editar stop y target'
+        >
+          <span className={`text-sm ${ticker.stop ? (tocaStop ? 'text-red-400 font-bold' : 'text-red-400/70') : 'text-gray-700'}`}>
+            SL: {ticker.stop ?? '—'}
+          </span>
+          <span className={`text-sm ${ticker.target ? (tocaTarget ? 'text-green-400 font-bold' : 'text-green-400/70') : 'text-gray-700'}`}>
+            TP: {ticker.target ?? '—'}
+          </span>
+          <span className='text-gray-600 text-xs self-center'>✎ editar</span>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -161,15 +279,17 @@ export default function Radar() {
 
   return (
     <div className='flex flex-col gap-6 py-4'>
-      <div className='flex items-center justify-between flex-wrap gap-3'>
+      {/* ── Cabecera + buscador ── */}
+      <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
         <div>
           <h1 className='text-2xl font-bold text-white'>Radar de vigilancia</h1>
           <p className='text-gray-500 text-sm mt-1'>Seguimiento técnico automático · Alertas Telegram cuando cambia el estado</p>
         </div>
 
-        <div className='relative'>
+        {/* Input + botón añadir — ancho completo en móvil */}
+        <div className='relative w-full sm:w-auto'>
           <div className='flex gap-2'>
-            <div className='relative'>
+            <div className='relative flex-1 sm:flex-initial'>
               <input
                 type='text'
                 placeholder='Añadir ticker o empresa…'
@@ -179,10 +299,15 @@ export default function Radar() {
                   buscarSugerencias(e.target.value)
                 }}
                 onKeyDown={e => e.key === 'Enter' && handleAñadir()}
-                className='bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 w-72 focus:outline-none focus:border-yellow-600'
+                className='bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white
+                           placeholder-gray-500 w-full sm:w-72
+                           focus:outline-none focus:border-yellow-600'
               />
               {mostrarSug && (
-                <div className='absolute top-full left-0 mt-1 w-full bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden'>
+                <div
+                  className='absolute top-full left-0 mt-1 w-full bg-gray-900
+                                border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden'
+                >
                   {buscandoSug ? (
                     <p className='text-gray-500 text-sm px-4 py-3'>Buscando...</p>
                   ) : (
@@ -190,7 +315,8 @@ export default function Radar() {
                       <button
                         key={s.symbol}
                         onClick={() => seleccionar(s.symbol, s.nombre)}
-                        className='w-full text-left px-4 py-2.5 hover:bg-gray-800 transition-colors flex items-center gap-3'
+                        className='w-full text-left px-4 py-2.5 hover:bg-gray-800
+                                   transition-colors flex items-center gap-3'
                       >
                         <span className='text-cyan-400 font-bold text-sm w-24 shrink-0'>{s.symbol}</span>
                         <span className='text-gray-300 text-sm truncate flex-1'>{s.nombre}</span>
@@ -203,7 +329,8 @@ export default function Radar() {
             </div>
             <button
               onClick={handleAñadir}
-              className='bg-yellow-600 hover:bg-yellow-500 text-black font-bold px-4 py-2 rounded-lg transition-colors'
+              className='bg-yellow-600 hover:bg-yellow-500 text-black font-bold
+                         px-4 py-2 rounded-lg transition-colors shrink-0'
             >
               + Añadir
             </button>
@@ -211,6 +338,7 @@ export default function Radar() {
         </div>
       </div>
 
+      {/* ── Contenido ── */}
       {cargando ? (
         <p className='text-gray-500 text-sm'>Cargando radar...</p>
       ) : tickers.length === 0 ? (
@@ -219,44 +347,65 @@ export default function Radar() {
           <p className='text-gray-700 text-sm mt-1'>Añade un ticker para empezar a vigilarlo</p>
         </div>
       ) : (
-        <div className='bg-gray-900 border border-gray-800 rounded-xl overflow-hidden'>
-          <table className='w-full'>
-            <thead>
-              <tr className='border-b border-gray-800'>
-                <th className='text-left text-gray-400 p-4 font-medium'>Ticker</th>
-                <th className='text-right text-gray-400 p-4 font-medium'>Precio</th>
-                <th className='text-right text-gray-400 p-4 font-medium'>RSI</th>
-                <th className='text-right text-gray-400 p-4 font-medium'>
-                  <span className='text-yellow-400'>SMA50</span>
-                  <span className='text-gray-600'> / </span>
-                  <span className='text-blue-400'>SMA200</span>
-                </th>
-                <th className='text-right text-gray-400 p-4 font-medium'>SL / TP</th>
-                <th className='text-center text-gray-400 p-4 font-medium'>Estado</th>
-                <th className='p-4'></th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickers.map(ticker => (
-                <FilaTicker
-                  key={ticker.id}
-                  ticker={ticker}
-                  datos={datos}
-                  onEliminar={eliminarTicker}
-                  onActualizarStopTarget={actualizarStopTarget}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* ── MÓVIL: tarjetas apiladas ── */}
+          <div className='flex flex-col gap-3 md:hidden'>
+            {tickers.map(ticker => (
+              <TarjetaTicker
+                key={ticker.id}
+                ticker={ticker}
+                datos={datos}
+                onEliminar={eliminarTicker}
+                onActualizarStopTarget={actualizarStopTarget}
+              />
+            ))}
+          </div>
+
+          {/* ── ESCRITORIO: tabla ── */}
+          <div
+            className='hidden md:block bg-gray-900 border border-gray-800
+                          rounded-xl overflow-hidden'
+          >
+            <table className='w-full'>
+              <thead>
+                <tr className='border-b border-gray-800'>
+                  <th className='text-left   text-gray-400 p-4 font-medium'>Ticker</th>
+                  <th className='text-right  text-gray-400 p-4 font-medium'>Precio</th>
+                  <th className='text-right  text-gray-400 p-4 font-medium'>RSI</th>
+                  <th className='text-right  text-gray-400 p-4 font-medium'>
+                    <span className='text-yellow-400'>SMA50</span>
+                    <span className='text-gray-600'> / </span>
+                    <span className='text-blue-400'>SMA200</span>
+                  </th>
+                  <th className='text-right  text-gray-400 p-4 font-medium'>SL / TP</th>
+                  <th className='text-center text-gray-400 p-4 font-medium'>Estado</th>
+                  <th className='p-4'></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tickers.map(ticker => (
+                  <FilaTicker
+                    key={ticker.id}
+                    ticker={ticker}
+                    datos={datos}
+                    onEliminar={eliminarTicker}
+                    onActualizarStopTarget={actualizarStopTarget}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
+      {/* ── Leyenda de estados ── */}
       {tickers.length > 0 && (
         <div className='flex flex-wrap gap-3'>
           {Object.entries(ESTADO_CONFIG).map(([key, cfg]) => (
             <span
               key={key}
-              className={`text-xs px-2 py-1 rounded-full border ${cfg.bg} ${cfg.text} ${cfg.border}`}
+              className={`text-xs px-2 py-1 rounded-full border
+                          ${cfg.bg} ${cfg.text} ${cfg.border}`}
             >
               {cfg.label}
             </span>

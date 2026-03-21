@@ -8,18 +8,16 @@ import { useModoPrivado } from '../context/ModoPrivadoContext'
 
 export default function DCA() {
   const { usuario } = useAuth()
+  const { ocultar } = useModoPrivado()
   const [aportaciones, setAportaciones] = useState([])
   const [precioActual, setPrecioActual] = useState('')
   const [form, setForm] = useState({ fecha: '', invertido: '', precioCompra: '' })
   const [error, setError] = useState('')
   const { precios } = usePreciosVivos(['VUSA.DE'])
-  const { ocultar } = useModoPrivado()
 
   useEffect(() => {
-    if (precios['VUSA.DE']) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPrecioActual(precios['VUSA.DE'].toString())
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (precios['VUSA.DE']) setPrecioActual(precios['VUSA.DE'].toString())
   }, [precios])
 
   useEffect(() => {
@@ -42,8 +40,6 @@ export default function DCA() {
   const añadirAportacion = async () => {
     const invertido = parseFloat(form.invertido)
     const precioCompra = parseFloat(form.precioCompra)
-
-    // Validación con mensaje visible
     if (!form.fecha) {
       setError('Selecciona una fecha')
       return
@@ -56,14 +52,12 @@ export default function DCA() {
       setError('Introduce el precio de compra')
       return
     }
-
     setError('')
     const participaciones = invertido / precioCompra
-
     await addDoc(collection(db, 'users', usuario.uid, COLECCIONES.DCA), {
       fecha: form.fecha,
-      invertido: invertido,
-      precioCompra: precioCompra,
+      invertido,
+      precioCompra,
       participaciones: parseFloat(participaciones.toFixed(6)),
       fechaRegistro: serverTimestamp()
     })
@@ -82,7 +76,7 @@ export default function DCA() {
     <div className='flex flex-col gap-6 py-4'>
       <h2 className='text-lg font-bold text-gray-200'>DCA VUSA — Vanguard S&P 500 UCITS ETF</h2>
 
-      {/* Precio actual */}
+      {/* ── Precio actual ── */}
       <div className='flex items-center gap-3'>
         <label className='text-gray-400 text-sm'>Precio actual VUSA.DE:</label>
         <input
@@ -91,12 +85,13 @@ export default function DCA() {
           value={precioActual}
           onChange={e => setPrecioActual(e.target.value)}
           placeholder='111.485'
-          className='bg-gray-800 border border-yellow-600 rounded-lg px-3 py-1.5 text-yellow-400 font-bold w-32 text-center'
+          className='bg-gray-800 border border-yellow-600 rounded-lg px-3 py-1.5
+                     text-yellow-400 font-bold w-32 text-center'
         />
         <span className='text-gray-500 text-xs'>Actualiza para ver el P&L</span>
       </div>
 
-      {/* Resumen */}
+      {/* ── Resumen ── */}
       <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-xs mb-1'>Total invertido</p>
@@ -104,12 +99,10 @@ export default function DCA() {
         </div>
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-xs mb-1'>Participaciones</p>
-          {/* Las participaciones son un número neutro, no un importe */}
           <p className='text-cyan-400 text-xl font-bold'>{totalParticipaciones.toFixed(4)}</p>
         </div>
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
           <p className='text-gray-400 text-xs mb-1'>Precio medio (break-even)</p>
-          {/* El precio medio es un precio de mercado, no un importe personal */}
           <p className='text-purple-400 text-xl font-bold'>{fmt3(precioMedio)} €</p>
           <p className='text-gray-500 text-xs mt-1'>= invertido ÷ participaciones</p>
         </div>
@@ -122,7 +115,7 @@ export default function DCA() {
         </div>
       </div>
 
-      {/* Formulario nueva aportación */}
+      {/* ── Formulario nueva aportación ── */}
       <div className='bg-gray-900 border border-gray-800 rounded-xl p-4'>
         <h3 className='text-sm font-bold text-gray-300 mb-3'>Registrar aportación</h3>
         <div className='grid grid-cols-2 sm:grid-cols-3 gap-3'>
@@ -135,7 +128,8 @@ export default function DCA() {
                 setError('')
                 setForm({ ...form, fecha: e.target.value })
               }}
-              className='bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 outline-none'
+              className='bg-gray-800 border border-gray-700 rounded-lg px-3 py-2
+                         text-gray-200 outline-none'
             />
           </div>
           <div className='flex flex-col gap-1'>
@@ -149,7 +143,8 @@ export default function DCA() {
                 setForm({ ...form, invertido: e.target.value })
               }}
               placeholder='99.29'
-              className='bg-gray-800 border border-blue-700 rounded-lg px-3 py-2 text-blue-300 outline-none'
+              className='bg-gray-800 border border-blue-700 rounded-lg px-3 py-2
+                         text-blue-300 outline-none'
             />
           </div>
           <div className='flex flex-col gap-1'>
@@ -163,70 +158,114 @@ export default function DCA() {
                 setForm({ ...form, precioCompra: e.target.value })
               }}
               placeholder='111.485'
-              className='bg-gray-800 border border-blue-700 rounded-lg px-3 py-2 text-blue-300 outline-none'
+              className='bg-gray-800 border border-blue-700 rounded-lg px-3 py-2
+                         text-blue-300 outline-none'
             />
           </div>
         </div>
-
-        {/* Mensaje de error */}
         {error && <p className='text-red-400 text-xs mt-2'>⚠ {error}</p>}
-
         <button
           onClick={añadirAportacion}
-          className='mt-3 bg-purple-700 hover:bg-purple-600 text-white font-medium py-2 px-5 rounded-lg transition-colors text-sm'
+          className='mt-3 bg-purple-700 hover:bg-purple-600 text-white font-medium
+                     py-2 px-5 rounded-lg transition-colors text-sm'
         >
           Añadir aportación
         </button>
       </div>
 
-      {/* Tabla de aportaciones */}
+      {/* ── Tabla de aportaciones ── */}
       {aportaciones.length > 0 && (
-        <div className='bg-gray-900 border border-gray-800 rounded-xl overflow-hidden'>
-          <table className='w-full text-sm'>
-            <thead>
-              <tr className='border-b border-gray-800'>
-                <th className='text-left  text-gray-400 p-3 font-medium'>Fecha</th>
-                <th className='text-right text-gray-400 p-3 font-medium'>Invertido</th>
-                <th className='text-right text-gray-400 p-3 font-medium'>Precio compra</th>
-                <th className='text-right text-gray-400 p-3 font-medium'>Participaciones</th>
-                <th className='text-right text-gray-400 p-3 font-medium'>PM acumulado</th>
-                <th className='text-right text-gray-400 p-3 font-medium'>Valor hoy</th>
-                <th className='p-3'></th>
-              </tr>
-            </thead>
-            <tbody>
-              {aportaciones.map((a, i) => {
-                const invAcum = aportaciones.slice(0, i + 1).reduce((s, x) => s + x.invertido, 0)
-                const partAcum = aportaciones.slice(0, i + 1).reduce((s, x) => s + x.participaciones, 0)
-                const pmAcum = partAcum > 0 ? invAcum / partAcum : 0
-                const valorHoy = a.participaciones * (parseFloat(precioActual) || 0)
+        <>
+          {/* Móvil: tarjetas */}
+          <div className='flex flex-col gap-2 md:hidden'>
+            {aportaciones.map((a, i) => {
+              const invAcum = aportaciones.slice(0, i + 1).reduce((s, x) => s + x.invertido, 0)
+              const partAcum = aportaciones.slice(0, i + 1).reduce((s, x) => s + x.participaciones, 0)
+              const pmAcum = partAcum > 0 ? invAcum / partAcum : 0
+              const valorHoy = a.participaciones * (parseFloat(precioActual) || 0)
 
-                return (
-                  <tr
-                    key={a.id}
-                    className='border-b border-gray-800 last:border-0 hover:bg-gray-800/50'
-                  >
-                    <td className='p-3 text-gray-300'>{a.fecha.split('-').reverse().join('-')}</td>
-                    <td className='p-3 text-right text-blue-300'>{ocultar(`${fmt2(a.invertido)} €`)}</td>
-                    {/* precio compra y PM acumulado son precios de mercado — no se ocultan */}
-                    <td className='p-3 text-right text-gray-300'>{fmt3(a.precioCompra)} €</td>
-                    <td className='p-3 text-right text-cyan-400'>{a.participaciones?.toFixed(4)}</td>
-                    <td className='p-3 text-right text-purple-400'>{fmt3(pmAcum)} €</td>
-                    <td className='p-3 text-right text-gray-300'>{precioActual ? ocultar(`${fmt2(valorHoy)} €`) : '—'}</td>
-                    <td className='p-3 text-right'>
-                      <button
-                        onClick={() => eliminarAportacion(a.id)}
-                        className='text-red-600 hover:text-red-400 text-xs transition-colors'
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+              return (
+                <div
+                  key={a.id}
+                  className='bg-gray-900 border border-gray-800 rounded-xl px-4 py-3
+                             flex flex-col gap-2'
+                >
+                  <div className='flex justify-between items-start'>
+                    <span className='text-gray-300 font-medium'>{a.fecha.split('-').reverse().join('-')}</span>
+                    <button
+                      onClick={() => eliminarAportacion(a.id)}
+                      className='text-red-600 hover:text-red-400 text-xs transition-colors'
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                  <div className='grid grid-cols-2 gap-x-4 gap-y-1 text-sm'>
+                    <span className='text-gray-500'>Invertido</span>
+                    <span className='text-blue-300 text-right'>{ocultar(`${fmt2(a.invertido)} €`)}</span>
+                    <span className='text-gray-500'>Precio compra</span>
+                    <span className='text-gray-300 text-right'>{fmt3(a.precioCompra)} €</span>
+                    <span className='text-gray-500'>Participaciones</span>
+                    <span className='text-cyan-400 text-right'>{a.participaciones?.toFixed(4)}</span>
+                    <span className='text-gray-500'>PM acumulado</span>
+                    <span className='text-purple-400 text-right'>{fmt3(pmAcum)} €</span>
+                    <span className='text-gray-500'>Valor hoy</span>
+                    <span className='text-gray-300 text-right'>{precioActual ? ocultar(`${fmt2(valorHoy)} €`) : '—'}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Escritorio: tabla */}
+          <div
+            className='hidden md:block bg-gray-900 border border-gray-800
+                          rounded-xl overflow-hidden'
+          >
+            <table className='w-full text-sm'>
+              <thead>
+                <tr className='border-b border-gray-800'>
+                  <th className='text-left  text-gray-400 p-3 font-medium'>Fecha</th>
+                  <th className='text-right text-gray-400 p-3 font-medium'>Invertido</th>
+                  <th className='text-right text-gray-400 p-3 font-medium'>Precio compra</th>
+                  <th className='text-right text-gray-400 p-3 font-medium'>Participaciones</th>
+                  <th className='text-right text-gray-400 p-3 font-medium'>PM acumulado</th>
+                  <th className='text-right text-gray-400 p-3 font-medium'>Valor hoy</th>
+                  <th className='p-3'></th>
+                </tr>
+              </thead>
+              <tbody>
+                {aportaciones.map((a, i) => {
+                  const invAcum = aportaciones.slice(0, i + 1).reduce((s, x) => s + x.invertido, 0)
+                  const partAcum = aportaciones.slice(0, i + 1).reduce((s, x) => s + x.participaciones, 0)
+                  const pmAcum = partAcum > 0 ? invAcum / partAcum : 0
+                  const valorHoy = a.participaciones * (parseFloat(precioActual) || 0)
+
+                  return (
+                    <tr
+                      key={a.id}
+                      className='border-b border-gray-800 last:border-0 hover:bg-gray-800/50'
+                    >
+                      <td className='p-3 text-gray-300'>{a.fecha.split('-').reverse().join('-')}</td>
+                      <td className='p-3 text-right text-blue-300'>{ocultar(`${fmt2(a.invertido)} €`)}</td>
+                      <td className='p-3 text-right text-gray-300'>{fmt3(a.precioCompra)} €</td>
+                      <td className='p-3 text-right text-cyan-400'>{a.participaciones?.toFixed(4)}</td>
+                      <td className='p-3 text-right text-purple-400'>{fmt3(pmAcum)} €</td>
+                      <td className='p-3 text-right text-gray-300'>{precioActual ? ocultar(`${fmt2(valorHoy)} €`) : '—'}</td>
+                      <td className='p-3 text-right'>
+                        <button
+                          onClick={() => eliminarAportacion(a.id)}
+                          className='text-red-600 hover:text-red-400 text-xs transition-colors'
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   )
