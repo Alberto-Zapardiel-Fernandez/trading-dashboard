@@ -133,6 +133,7 @@ export const exportarOperacionesExcel = operaciones => {
 
 // ============================================================
 // EXPORTAR MOVIMIENTOS (LIBRO DE CAJA) A CSV
+// ── ACTUALIZADO: incluye columna "Cuenta" para multicuenta ──
 // ============================================================
 export const exportarMovimientosCSV = movimientos => {
   if (!movimientos || movimientos.length === 0) {
@@ -140,9 +141,10 @@ export const exportarMovimientosCSV = movimientos => {
     return
   }
 
-  const cabecera = ['Fecha', 'Tipo', 'Importe (€)', 'Descripción']
+  // Columna "Cuenta" añadida — los movimientos legacy sin campo aparecen como TRADING
+  const cabecera = ['Fecha', 'Cuenta', 'Tipo', 'Importe (€)', 'Notas']
 
-  const filas = movimientos.map(mov => [mov.fecha ?? '', mov.tipo ?? '', mov.importe ?? '', mov.descripcion ?? ''])
+  const filas = movimientos.map(mov => [mov.fecha ?? '', mov.cuenta ?? 'TRADING', mov.tipo ?? '', mov.importe ?? '', mov.notas ?? ''])
 
   const contenido = [cabecera, ...filas].map(fila => fila.map(celda => `"${String(celda).replace(/"/g, '""')}"`).join(';')).join('\n')
 
@@ -155,6 +157,7 @@ export const exportarMovimientosCSV = movimientos => {
 
 // ============================================================
 // EXPORTAR MOVIMIENTOS A EXCEL (.xlsx)
+// ── ACTUALIZADO: incluye columna "Cuenta" para multicuenta ──
 // ============================================================
 export const exportarMovimientosExcel = movimientos => {
   if (!movimientos || movimientos.length === 0) {
@@ -164,9 +167,10 @@ export const exportarMovimientosExcel = movimientos => {
 
   const datos = movimientos.map(mov => ({
     'Fecha': mov.fecha ?? '',
+    'Cuenta': mov.cuenta ?? 'TRADING', // campo nuevo — legacy → TRADING
     'Tipo': mov.tipo ?? '',
     'Importe (€)': Number(mov.importe) || 0,
-    'Descripción': mov.descripcion ?? ''
+    'Notas': mov.notas ?? ''
   }))
 
   const hoja = XLSX.utils.json_to_sheet(datos)
