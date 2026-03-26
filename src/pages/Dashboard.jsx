@@ -1,37 +1,74 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Dashboard.jsx — Vista general de la cartera
+//
+// CAMBIOS Sprint 18:
+//   · Tarjetas de métricas clicables → navegan a su página relevante
+//   · Resumen de Cartera Bunker visible en el dashboard
+//   · Últimas cerradas ordenadas por fechaCierre DESC de forma robusta
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useMemo } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
+import { useNavigate } from 'react-router-dom'
 import { db } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { useConfig } from '../hooks/useConfig'
 import { COLECCIONES } from '../config/constants'
 import { useMovimientos } from '../hooks/useMovimientos'
+import { usePreciosVivos } from '../hooks/usePreciosVivos'
 import EquityCurve from '../components/EquityCurve.jsx'
 import { useModoPrivado } from '../context/ModoPrivadoContext'
 
-// ── Componente: tarjeta de métrica ────────────────────────────────────────────
-function Tarjeta({ titulo, valor, subtitulo, color = 'text-white' }) {
+// ── Tarjeta clicable ──────────────────────────────────────────────────────────
+// Si recibe 'href', al hacer click navega a esa ruta.
+// El cursor cambia a pointer y hay un sutil efecto hover para indicar que es clicable.
+function Tarjeta({ titulo, valor, subtitulo, color = 'text-white', href }) {
+  const navigate = useNavigate()
+
   return (
-    <div className='bg-gray-900 border border-gray-800 rounded-xl p-5'>
+    <div
+      onClick={() => href && navigate(href)}
+      className={`bg-gray-900 border border-gray-800 rounded-xl p-5 transition-colors ${
+        href ? 'cursor-pointer hover:border-gray-600 hover:bg-gray-800/60' : ''
+      }`}
+      title={href ? `Ir a ${titulo}` : undefined}
+    >
       <p className='text-gray-400 text-sm mb-1'>{titulo}</p>
       <p className={`text-3xl font-bold ${color}`}>{valor}</p>
       {subtitulo && <p className='text-gray-500 text-sm mt-1'>{subtitulo}</p>}
+      {/* Pequeña flecha indicadora de que es clicable */}
+      {href && <p className='text-gray-700 text-xs mt-2'>Ver detalle →</p>}
     </div>
   )
 }
 
+// ── Tarjeta de cuenta con borde de color y navegación ────────────────────────
+function TarjetaCuenta({ etiqueta, colorBorde, colorTexto, valor, colorValor, subtitulo, linkLabel, href }) {
+  const navigate = useNavigate()
+  return (
+    <div
+      onClick={() => navigate(href)}
+      className={`bg-gray-900 border rounded-xl p-5 cursor-pointer transition-colors ${colorBorde} hover:bg-gray-800/60`}
+    >
+      <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${colorTexto}`}>{etiqueta}</p>
+      <p className={`text-3xl font-bold ${colorValor}`}>{valor}</p>
+      <p className='text-gray-500 text-sm mt-1'>{subtitulo}</p>
+      <p className='text-gray-700 text-xs mt-2'>{linkLabel}</p>
+    </div>
+  )
+}
+
+// ── Página principal ──────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { usuario } = useAuth()
   const { config, actualizarConfig } = useConfig()
   const [operaciones, setOperaciones] = useState([])
+  const [aportacionesDca, setAportacionesDca] = useState([])
 
-  // ── Ahora usamos los saldos separados por cuenta ──────────────────────────
   const { totalMovimientos, saldoBunker } = useMovimientos()
   const { ocultar } = useModoPrivado()
 
+  // ── Cargar operaciones ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!usuario) return
     const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.OPERACIONES), snap =>
@@ -40,30 +77,63 @@ export default function Dashboard() {
     return unsub
   }, [usuario])
 
-  // ── Cálculos de operativa (solo cuenta Trading) ───────────────────────────
+  // ── Cargar aportaciones DCA (cartera Bunker) ───────────────────────────────
+  useEffect(() => {
+    if (!usuario) return
+    const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.DCA), snap =>
+      setAportacionesDca(
+        snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          // Retrocompatibilidad: sin ticker → VUSA.DE
+          .map(a => ({ ...a, ticker: a.ticker || 'VUSA.DE' }))
+      )
+    )
+    return unsub
+  }, [usuario])
+
+  // ── Tickers únicos de la cartera Bunker para pedir precios ────────────────
+  const tickersBunker = useMemo(() => [...new Set(aportacionesDca.map(a => a.ticker))], [aportacionesDca])
+  const { precios: preciosBunker } = usePreciosVivos(tickersBunker)
+
+  // ── Cálculos operativa (cuenta Trading) ───────────────────────────────────
   const cerradas = useMemo(
-    () =>
-      operaciones
-        .filter(o => o.estado === 'CERRADA')
-        // Ordenar por fechaCierre descendente (más reciente primero) — forma robusta
-        .sort((a, b) => (b.fechaCierre || '').localeCompare(a.fechaCierre || '')),
+    () => operaciones.filter(o => o.estado === 'CERRADA').sort((a, b) => (b.fechaCierre || '').localeCompare(a.fechaCierre || '')),
     [operaciones]
   )
   const abiertas = operaciones.filter(o => o.estado === 'ABIERTA')
 
   const pnlRealizado = cerradas.reduce((s, o) => s + (o.pnlEuros || 0), 0)
   const pnlVivo = abiertas.reduce((s, o) => s + (o.pnlVivo || 0), 0)
-
-  // El saldo realizado de Trading = depósitos Trading + P&L cerrado
-  // totalMovimientos ya devuelve solo el saldo de la cuenta Trading
   const saldoRealizado = totalMovimientos + pnlRealizado
   const saldoActual = saldoRealizado + pnlVivo
-
   const riesgo1pct = saldoRealizado * 0.01
   const ganadas = cerradas.filter(o => (o.pnlEuros || 0) > 0).length
   const winRate = cerradas.length > 0 ? (ganadas / cerradas.length) * 100 : 0
 
-  const fmt = n => `${n.toFixed(2)} €`
+  // ── Cálculos cartera Bunker ────────────────────────────────────────────────
+  const resumenBunker = useMemo(() => {
+    let invertido = 0
+    let valorActual = 0
+
+    // Agrupar por ticker para calcular valor con el precio actual
+    const grupos = {}
+    for (const a of aportacionesDca) {
+      if (!grupos[a.ticker]) grupos[a.ticker] = { invertido: 0, participaciones: 0 }
+      grupos[a.ticker].invertido += a.invertido || 0
+      grupos[a.ticker].participaciones += a.participaciones || 0
+    }
+    for (const [ticker, g] of Object.entries(grupos)) {
+      const precio = parseFloat(preciosBunker[ticker]) || 0
+      invertido += g.invertido
+      valorActual += g.participaciones * precio
+    }
+
+    const pnl = valorActual - invertido
+    const pnlPct = invertido > 0 ? (pnl / invertido) * 100 : 0
+    return { invertido, valorActual, pnl, pnlPct, numPositiones: Object.keys(grupos).length }
+  }, [aportacionesDca, preciosBunker])
+
+  const fmt = n => `${(n || 0).toFixed(2)} €`
 
   return (
     <div className='flex flex-col gap-6 py-4'>
@@ -81,23 +151,33 @@ export default function Dashboard() {
         <span className='text-gray-600 text-xs'>Se actualiza automáticamente · ajusta si lo necesitas</span>
       </div>
 
-      {/* ── Saldos de cuentas ── */}
+      {/* ── Capital: las dos cuentas ── */}
       <div>
         <h2 className='text-lg font-bold text-gray-200 mb-3'>Capital</h2>
         <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
-          {/* Cuenta Trading */}
-          <div className='bg-gray-900 border border-blue-900 rounded-xl p-5'>
-            <p className='text-blue-400 text-xs font-bold uppercase tracking-wider mb-1'>Trading</p>
-            <p className={`text-3xl font-bold ${saldoActual >= 0 ? 'text-white' : 'text-red-400'}`}>{ocultar(fmt(saldoActual))}</p>
-            <p className='text-gray-500 text-sm mt-1'>Depósito + P&L</p>
-          </div>
+          {/* Cuenta Trading — clicable → libro de caja */}
+          <TarjetaCuenta
+            etiqueta='Trading'
+            colorBorde='border-blue-900 hover:border-blue-700'
+            colorTexto='text-blue-400'
+            valor={ocultar(fmt(saldoActual))}
+            colorValor={saldoActual >= 0 ? 'text-white' : 'text-red-400'}
+            subtitulo='Depósito + P&L'
+            linkLabel='Ver libro de caja →'
+            href='/movimientos'
+          />
 
-          {/* Cuenta Bunker */}
-          <div className='bg-gray-900 border border-amber-900 rounded-xl p-5'>
-            <p className='text-amber-400 text-xs font-bold uppercase tracking-wider mb-1'>Bunker</p>
-            <p className={`text-3xl font-bold ${saldoBunker >= 0 ? 'text-amber-400' : 'text-red-400'}`}>{ocultar(fmt(saldoBunker))}</p>
-            <p className='text-gray-500 text-sm mt-1'>Ahorro / largo plazo</p>
-          </div>
+          {/* Cuenta Bunker — clicable → cartera DCA */}
+          <TarjetaCuenta
+            etiqueta='Bunker'
+            colorBorde='border-amber-900 hover:border-amber-700'
+            colorTexto='text-amber-400'
+            valor={ocultar(fmt(saldoBunker))}
+            colorValor={saldoBunker >= 0 ? 'text-amber-400' : 'text-red-400'}
+            subtitulo='Ahorro / largo plazo'
+            linkLabel='Ver cartera →'
+            href='/dca'
+          />
 
           {/* Total consolidado */}
           <div className='bg-gray-900 border border-gray-700 rounded-xl p-5'>
@@ -108,7 +188,7 @@ export default function Dashboard() {
             <p className='text-gray-500 text-sm mt-1'>Trading + Bunker</p>
           </div>
 
-          {/* Riesgo por operación */}
+          {/* Riesgo 1% */}
           <Tarjeta
             titulo='Riesgo por operación'
             valor={ocultar(fmt(riesgo1pct))}
@@ -118,7 +198,49 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Métricas de operativa ── */}
+      {/* ── Resumen cartera Bunker ── */}
+      {aportacionesDca.length > 0 && (
+        <div>
+          <h2 className='text-lg font-bold text-gray-200 mb-3'>
+            Cartera Bunker
+            <span className='text-gray-600 font-normal text-sm ml-2'>
+              {resumenBunker.numPositiones} posición{resumenBunker.numPositiones !== 1 ? 'es' : ''}
+            </span>
+          </h2>
+          <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+            <Tarjeta
+              titulo='Invertido'
+              valor={ocultar(fmt(resumenBunker.invertido))}
+              subtitulo='Capital aportado'
+              color='text-amber-400'
+              href='/dca'
+            />
+            <Tarjeta
+              titulo='Valor actual'
+              valor={ocultar(fmt(resumenBunker.valorActual))}
+              subtitulo='A precios de mercado'
+              color='text-white'
+              href='/dca'
+            />
+            <Tarjeta
+              titulo='P&L Bunker'
+              valor={ocultar(`${resumenBunker.pnl >= 0 ? '+' : ''}${fmt(resumenBunker.pnl)}`)}
+              subtitulo='Latente no realizado'
+              color={resumenBunker.pnl >= 0 ? 'text-green-400' : 'text-red-400'}
+              href='/dca'
+            />
+            <Tarjeta
+              titulo='Rentabilidad'
+              valor={ocultar(`${resumenBunker.pnlPct >= 0 ? '+' : ''}${resumenBunker.pnlPct.toFixed(2)}%`)}
+              subtitulo='Sobre capital invertido'
+              color={resumenBunker.pnlPct >= 0 ? 'text-green-400' : 'text-red-400'}
+              href='/dca'
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Operativa Trading ── */}
       <div>
         <h2 className='text-lg font-bold text-gray-200 mb-3'>Operativa</h2>
         <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
@@ -127,24 +249,28 @@ export default function Dashboard() {
             valor={ocultar(fmt(pnlRealizado))}
             subtitulo={`${cerradas.length} operaciones cerradas`}
             color={pnlRealizado >= 0 ? 'text-green-400' : 'text-red-400'}
+            href='/estadisticas'
           />
           <Tarjeta
             titulo='P&L vivo'
             valor={ocultar(fmt(pnlVivo))}
             subtitulo='Posiciones abiertas ahora'
             color={pnlVivo >= 0 ? 'text-green-400' : 'text-red-400'}
+            href='/historico'
           />
           <Tarjeta
             titulo='Posiciones abiertas'
             valor={abiertas.length}
             subtitulo='En curso'
             color='text-blue-400'
+            href='/historico'
           />
           <Tarjeta
             titulo='Win rate'
             valor={ocultar(`${winRate.toFixed(1)}%`)}
             subtitulo={`${ganadas} de ${cerradas.length} ganadoras`}
             color={winRate >= 50 ? 'text-green-400' : 'text-red-400'}
+            href='/estadisticas'
           />
         </div>
       </div>
@@ -154,7 +280,7 @@ export default function Dashboard() {
         <div>
           <h2 className='text-lg font-bold text-gray-200 mb-3'>Posiciones abiertas</h2>
 
-          {/* Móvil: tarjetas */}
+          {/* Móvil */}
           <div className='flex flex-col gap-3 md:hidden'>
             {abiertas.map(op => (
               <div
@@ -184,7 +310,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Escritorio: tabla */}
+          {/* Escritorio */}
           <div className='hidden md:block bg-gray-900 border border-gray-800 rounded-xl overflow-hidden'>
             <table className='w-full'>
               <thead>
@@ -229,7 +355,7 @@ export default function Dashboard() {
             </span>
           </h2>
 
-          {/* Móvil: tarjetas */}
+          {/* Móvil */}
           <div className='flex flex-col gap-3 md:hidden'>
             {cerradas.slice(0, 5).map(op => (
               <div
@@ -264,7 +390,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Escritorio: tabla */}
+          {/* Escritorio */}
           <div className='hidden md:block bg-gray-900 border border-gray-800 rounded-xl overflow-hidden'>
             <table className='w-full'>
               <thead>
@@ -301,7 +427,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Equity Curve — solo saldo Trading ── */}
+      {/* ── Equity Curve — solo cuenta Trading ── */}
       <EquityCurve
         cerradas={cerradas}
         saldoBase={totalMovimientos}
