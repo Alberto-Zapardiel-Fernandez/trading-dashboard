@@ -62,6 +62,10 @@ export default function ResumenFiscal() {
   const anioActual = new Date().getFullYear().toString()
   const [anioSeleccionado, setAnioSeleccionado] = useState(anioActual)
 
+  // Límite de operaciones visibles en la tabla — "Ver todas" lo quita
+  const LIMITE_DEFECTO = 10
+  const [verTodas, setVerTodas] = useState(false)
+
   useEffect(() => {
     if (!usuario) return
     const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.OPERACIONES), snap =>
@@ -85,6 +89,9 @@ export default function ResumenFiscal() {
         .sort((a, b) => (b.fechaCierre || '').localeCompare(a.fechaCierre || '')),
     [operaciones, anioSeleccionado]
   )
+
+  // Operaciones visibles según el límite activo
+  const opsFiscalesVisibles = verTodas ? opsFiscales : opsFiscales.slice(0, LIMITE_DEFECTO)
 
   // Métricas fiscales del año
   const metricas = useMemo(() => {
@@ -299,11 +306,26 @@ export default function ResumenFiscal() {
 
           {/* ── Detalle de operaciones del ejercicio ── */}
           <div>
-            <h2 className='text-base font-bold text-gray-300 mb-3'>Detalle de operaciones — {anioSeleccionado}</h2>
+            <div className='flex items-center justify-between mb-3 flex-wrap gap-2'>
+              <h2 className='text-base font-bold text-gray-300'>
+                Detalle de operaciones — {anioSeleccionado}
+                <span className='text-gray-600 font-normal text-sm ml-2'>
+                  ({opsFiscalesVisibles.length} de {opsFiscales.length})
+                </span>
+              </h2>
+              {opsFiscales.length > LIMITE_DEFECTO && (
+                <button
+                  onClick={() => setVerTodas(v => !v)}
+                  className='text-blue-400 hover:text-blue-300 text-sm transition-colors'
+                >
+                  {verTodas ? '↑ Ver menos' : `↓ Ver todas (${opsFiscales.length})`}
+                </button>
+              )}
+            </div>
 
             {/* Móvil: tarjetas */}
             <div className='flex flex-col gap-2 md:hidden'>
-              {opsFiscales.map(op => (
+              {opsFiscalesVisibles.map(op => (
                 <div
                   key={op.id}
                   className='bg-gray-900 border border-gray-800 rounded-xl px-4 py-3
@@ -351,7 +373,7 @@ export default function ResumenFiscal() {
                   </tr>
                 </thead>
                 <tbody>
-                  {opsFiscales.map(op => (
+                  {opsFiscalesVisibles.map(op => (
                     <tr
                       key={op.id}
                       className='border-b border-gray-800 last:border-0 hover:bg-gray-800/40'

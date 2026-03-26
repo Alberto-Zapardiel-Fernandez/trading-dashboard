@@ -1,5 +1,11 @@
 // src/pages/Grafica.jsx
+// ─────────────────────────────────────────────────────────────────────────────
+// CAMBIOS Sprint 20:
+//   · Lee el ticker desde React Router location.state cuando viene del Explorador
+//     y carga la gráfica automáticamente sin que el usuario tenga que buscar
+// ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import { obtenerVelas, buscarTickers } from '../services/yahooFinance'
 import GraficaVelas from '../components/GraficaVelas'
 
@@ -14,6 +20,8 @@ const TEMPORALIDADES = [
 ]
 
 export default function Grafica() {
+  const location = useLocation()
+
   const [inputTicker, setInputTicker] = useState('')
   const [tickerActivo, setTickerActivo] = useState('')
   const [nombreActivo, setNombreActivo] = useState('')
@@ -28,12 +36,37 @@ export default function Grafica() {
   const refBuscador = useRef(null)
   const debounceRef = useRef(null)
 
+  // ── Cargar gráfica ─────────────────────────────────────────────────────────
+  const cargarGrafica = useCallback(async (ticker, nombre, temp) => {
+    if (!ticker) return
+    const t = ticker.toUpperCase().trim()
+    setCargando(true)
+    setError(null)
+    setVelas([])
+    const datos = await obtenerVelas(t, temp)
+    if (!datos || datos.length === 0) {
+      setError(`No se encontraron datos para "${t}". Comprueba el ticker.`)
+    } else {
+      setVelas(datos)
+      setTickerActivo(t)
+      setNombreActivo(nombre || t)
+      setInputTicker(t)
+    }
+    setCargando(false)
+  }, [])
+
+  // ── Si venimos del Explorador, location.state trae { ticker, nombre } ──────
+  // Se ejecuta una sola vez al montar el componente
+  useEffect(() => {
+    const { ticker, nombre } = location.state || {}
+    if (ticker) cargarGrafica(ticker, nombre || ticker, '1D')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Cierra sugerencias al hacer clic fuera
   useEffect(() => {
     const handler = e => {
-      if (refBuscador.current && !refBuscador.current.contains(e.target)) {
-        setMostrarSugerencias(false)
-      }
+      if (refBuscador.current && !refBuscador.current.contains(e.target)) setMostrarSugerencias(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -60,23 +93,6 @@ export default function Grafica() {
     buscarSugerencias(e.target.value)
   }
 
-  const cargarGrafica = async (ticker, nombre, temp) => {
-    if (!ticker) return
-    const t = ticker.toUpperCase().trim()
-    setCargando(true)
-    setError(null)
-    setVelas([])
-    const datos = await obtenerVelas(t, temp)
-    if (!datos || datos.length === 0) {
-      setError(`No se encontraron datos para "${t}". Comprueba el ticker.`)
-    } else {
-      setVelas(datos)
-      setTickerActivo(t)
-      setNombreActivo(nombre || t)
-    }
-    setCargando(false)
-  }
-
   const seleccionarSugerencia = (symbol, nombre) => {
     setInputTicker(symbol)
     setMostrarSugerencias(false)
@@ -101,16 +117,13 @@ export default function Grafica() {
 
   return (
     <div className='flex flex-col gap-5 py-4'>
-      {/* ── Cabecera ── */}
       <div>
-        <h1 className='text-2xl font-bold text-white'>Análisis</h1>
+        <h1 className='text-2xl font-bold text-white'>Análisis técnico</h1>
         <p className='text-gray-500 text-sm mt-1'>Busca cualquier ticker para ver su gráfica con indicadores</p>
       </div>
 
-      {/* ── Controles ── */}
-      {/* En móvil: columna. En escritorio: fila */}
       <div className='flex flex-col sm:flex-row sm:items-center gap-3'>
-        {/* Buscador con autocompletado — ancho completo en móvil */}
+        {/* Buscador */}
         <div
           ref={refBuscador}
           className='relative w-full sm:w-auto'
@@ -123,10 +136,8 @@ export default function Grafica() {
             onKeyDown={handleKeyDown}
             onFocus={() => sugerencias.length > 0 && setMostrarSugerencias(true)}
             className='bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white
-                       placeholder-gray-500 w-full sm:w-80
-                       focus:outline-none focus:border-yellow-600'
+                       placeholder-gray-500 w-full sm:w-80 focus:outline-none focus:border-yellow-600'
           />
-
           {mostrarSugerencias && (
             <div
               className='absolute top-full left-0 mt-1 w-full bg-gray-900 border border-gray-700
@@ -139,8 +150,7 @@ export default function Grafica() {
                   <button
                     key={s.symbol}
                     onClick={() => seleccionarSugerencia(s.symbol, s.nombre)}
-                    className='w-full text-left px-4 py-2.5 hover:bg-gray-800 transition-colors
-                               flex items-center gap-3'
+                    className='w-full text-left px-4 py-2.5 hover:bg-gray-800 transition-colors flex items-center gap-3'
                   >
                     <span className='text-cyan-400 font-bold text-sm w-24 shrink-0'>{s.symbol}</span>
                     <span className='text-gray-300 text-sm truncate flex-1'>{s.nombre}</span>
@@ -152,7 +162,6 @@ export default function Grafica() {
           )}
         </div>
 
-        {/* Botón buscar — ancho completo en móvil */}
         <button
           onClick={handleBuscar}
           className='bg-yellow-600 hover:bg-yellow-500 text-black font-bold px-5 py-2
@@ -161,7 +170,7 @@ export default function Grafica() {
           Buscar
         </button>
 
-        {/* Selector de temporalidad — scroll horizontal en móvil para que no se rompa */}
+        {/* Temporalidades */}
         <div className='overflow-x-auto pb-1'>
           <div className='flex gap-1 min-w-max'>
             {TEMPORALIDADES.map(t => (
@@ -179,7 +188,6 @@ export default function Grafica() {
         </div>
       </div>
 
-      {/* ── Título ticker activo ── */}
       {tickerActivo && (
         <div className='flex items-baseline gap-3 flex-wrap'>
           <h1 className='text-2xl font-bold text-white'>{tickerActivo}</h1>
@@ -188,7 +196,6 @@ export default function Grafica() {
         </div>
       )}
 
-      {/* ── Gráfica — autoSize:true la hace responsive automáticamente ── */}
       <GraficaVelas
         velas={velas}
         cargando={cargando}

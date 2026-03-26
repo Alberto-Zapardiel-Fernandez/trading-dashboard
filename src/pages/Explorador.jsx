@@ -1,19 +1,30 @@
 // src/pages/Explorador.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Explorador de mercado: ficha completa de un activo + noticias recientes.
-// Permite añadir el ticker directamente al radar de vigilancia.
+// CAMBIOS Sprint 20:
+//   · Botón "Ver gráfica" en la ficha del activo — navega a /grafica
+//     pasando { ticker, nombre } en location.state para que cargue solo
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { buscarTickers } from '../services/yahooFinance'
 import { obtenerNoticias, formatearFecha } from '../services/noticias'
 import { useRadarContext } from '../hooks/useRadarContext'
 
-// ── Componente de ficha del activo ────────────────────────────────────────────
-function FichaActivo({ ficha, onAñadirRadar, yaEnRadar }) {
+// ── Formato de volumen / capitalización ───────────────────────────────────────
+function formatearVolumen(n) {
+  if (n >= 1e12) return `${(n / 1e12).toFixed(2)}T`
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`
+  return n.toString()
+}
+
+// ── Ficha del activo ──────────────────────────────────────────────────────────
+function FichaActivo({ ficha, onAñadirRadar, yaEnRadar, onVerGrafica }) {
   return (
     <div className='bg-gray-900 border border-gray-800 rounded-xl p-5 flex flex-col gap-4'>
-      {/* Cabecera */}
+      {/* Cabecera: nombre + botones */}
       <div className='flex items-start justify-between gap-4 flex-wrap'>
         <div>
           <div className='flex items-center gap-3'>
@@ -22,15 +33,29 @@ function FichaActivo({ ficha, onAñadirRadar, yaEnRadar }) {
           </div>
           <p className='text-gray-400 mt-0.5'>{ficha.nombre}</p>
         </div>
-        <button
-          onClick={onAñadirRadar}
-          disabled={yaEnRadar}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
-            yaEnRadar ? 'bg-gray-800 text-gray-600 cursor-default' : 'bg-yellow-600 hover:bg-yellow-500 text-black'
-          }`}
-        >
-          {yaEnRadar ? '✓ En radar' : '+ Añadir al radar'}
-        </button>
+
+        {/* Botones de acción — alineados a la derecha */}
+        <div className='flex items-center gap-2 flex-wrap'>
+          {/* ── NUEVO: Ver gráfica ── */}
+          <button
+            onClick={onVerGrafica}
+            className='px-4 py-2 rounded-lg text-sm font-bold transition-colors
+                       bg-yellow-600 hover:bg-yellow-500 text-black'
+          >
+            Ver gráfica →
+          </button>
+
+          {/* Añadir al radar */}
+          <button
+            onClick={onAñadirRadar}
+            disabled={yaEnRadar}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+              yaEnRadar ? 'bg-gray-800 text-gray-600 cursor-default' : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+            }`}
+          >
+            {yaEnRadar ? '✓ En radar' : '+ Añadir al radar'}
+          </button>
+        </div>
       </div>
 
       {/* Precio */}
@@ -64,56 +89,48 @@ function FichaActivo({ ficha, onAñadirRadar, yaEnRadar }) {
   )
 }
 
-function formatearVolumen(n) {
-  if (n >= 1e12) return `${(n / 1e12).toFixed(2)}T`
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`
-  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`
-  return n.toString()
-}
-
-// ── Componente de noticias ────────────────────────────────────────────────────
+// ── Lista de noticias ─────────────────────────────────────────────────────────
 function ListaNoticias({ noticias, cargando }) {
   if (cargando) return <p className='text-gray-500 text-sm'>Cargando noticias...</p>
   if (noticias.length === 0) return <p className='text-gray-600 text-sm'>No se encontraron noticias para este ticker.</p>
 
   return (
     <div className='flex flex-col gap-3'>
-      {noticias.map((noticia, indice) => {
-        return (
-          <a
-            key={indice}
-            href={noticia.enlace}
-            target='_blank'
-            rel='noopener noreferrer'
-            className='bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 hover:bg-gray-800/50 transition-all group'
-          >
-            <div className='flex items-start justify-between gap-3'>
-              <p className='text-gray-200 group-hover:text-white transition-colors leading-snug flex-1'>
-                {noticia.titulo}
-                {noticia.traducida && <span className='ml-2 text-xs text-gray-600 font-normal'>(traducido)</span>}
-              </p>
-              <span className='text-gray-600 text-xs shrink-0 mt-0.5'>↗</span>
-            </div>
-            <div className='flex items-center gap-2 mt-2'>
-              <span className='text-gray-600 text-xs'>{noticia.fuente}</span>
-              {noticia.fecha && <span className='text-gray-600 text-xs'>· {formatearFecha(noticia.fecha)}</span>}
-            </div>
-          </a>
-        )
-      })}
+      {noticias.map((noticia, i) => (
+        <a
+          key={i}
+          href={noticia.enlace}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='bg-gray-900 border border-gray-800 rounded-xl p-4
+                     hover:border-gray-700 hover:bg-gray-800/50 transition-all group'
+        >
+          <div className='flex items-start justify-between gap-3'>
+            <p className='text-gray-200 group-hover:text-white transition-colors leading-snug flex-1'>
+              {noticia.titulo}
+              {noticia.traducida && <span className='ml-2 text-xs text-gray-600 font-normal'>(traducido)</span>}
+            </p>
+            <span className='text-gray-600 text-xs shrink-0 mt-0.5'>↗</span>
+          </div>
+          <div className='flex items-center gap-2 mt-2'>
+            <span className='text-gray-600 text-xs'>{noticia.fuente}</span>
+            {noticia.fecha && <span className='text-gray-600 text-xs'>· {formatearFecha(noticia.fecha)}</span>}
+          </div>
+        </a>
+      ))}
     </div>
   )
 }
+
 // ── Página principal ──────────────────────────────────────────────────────────
 export default function Explorador() {
+  const navigate = useNavigate()
   const { tickers, añadirTicker } = useRadarContext()
 
   const [input, setInput] = useState('')
   const [sugerencias, setSugerencias] = useState([])
   const [mostrarSug, setMostrarSug] = useState(false)
   const [buscandoSug, setBuscandoSug] = useState(false)
-
   const [ficha, setFicha] = useState(null)
   const [noticias, setNoticias] = useState([])
   const [cargandoFicha, setCargandoFicha] = useState(false)
@@ -148,7 +165,6 @@ export default function Explorador() {
     setMostrarSug(false)
 
     try {
-      // Obtenemos el precio y los metadatos desde Yahoo Finance
       const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`
       const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(yahooUrl)}`
       const res = await fetch(proxyUrl)
@@ -162,7 +178,7 @@ export default function Explorador() {
         return
       }
 
-      setFicha({
+      const fichaObj = {
         symbol,
         nombre: nombre || meta.longName || meta.shortName || symbol,
         exchange: exchange || meta.exchangeName || '',
@@ -175,22 +191,23 @@ export default function Explorador() {
         max52sem: meta.fiftyTwoWeekHigh,
         min52sem: meta.fiftyTwoWeekLow,
         capMercado: meta.marketCap,
-        per: null // Yahoo v8 no incluye P/E en este endpoint
-      })
+        per: null
+      }
+      setFicha(fichaObj)
+
+      // Noticias en paralelo
+      try {
+        const news = await obtenerNoticias(symbol, fichaObj.nombre)
+        setNoticias(news)
+      } catch {
+        setNoticias([])
+      } finally {
+        setCargandoNoticias(false)
+      }
     } catch {
       setError('Error al obtener datos. Inténtalo de nuevo.')
     } finally {
       setCargandoFicha(false)
-    }
-
-    // Noticias en paralelo
-    try {
-      const news = await obtenerNoticias(symbol, ficha?.nombre || '')
-      setNoticias(news)
-    } catch {
-      setNoticias([])
-    } finally {
-      setCargandoNoticias(false)
     }
   }
 
@@ -213,15 +230,20 @@ export default function Explorador() {
     await añadirTicker(ficha.symbol, ficha.nombre)
   }
 
+  // ── NUEVO: navegar a /grafica pasando el ticker en location.state ──────────
+  const handleVerGrafica = () => {
+    if (!ficha) return
+    navigate('/grafica', { state: { ticker: ficha.symbol, nombre: ficha.nombre } })
+  }
+
   return (
     <div className='flex flex-col gap-6 py-4'>
-      {/* ── Cabecera ── */}
       <div>
         <h1 className='text-2xl font-bold text-white'>Explorador de mercado</h1>
         <p className='text-gray-500 text-sm mt-1'>Busca cualquier acción, ETF o índice y consulta su ficha completa y noticias</p>
       </div>
 
-      {/* ── Buscador ── */}
+      {/* Buscador */}
       <div
         ref={refBuscador}
         className='relative max-w-lg'
@@ -236,7 +258,8 @@ export default function Explorador() {
               buscarSugerencias(e.target.value)
             }}
             onKeyDown={e => e.key === 'Enter' && handleBuscar()}
-            className='bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 flex-1 focus:outline-none focus:border-yellow-600'
+            className='bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white
+                       placeholder-gray-500 flex-1 focus:outline-none focus:border-yellow-600'
           />
           <button
             onClick={handleBuscar}
@@ -246,9 +269,11 @@ export default function Explorador() {
           </button>
         </div>
 
-        {/* Dropdown sugerencias */}
         {mostrarSug && (
-          <div className='absolute top-full left-0 mt-1 w-full bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden'>
+          <div
+            className='absolute top-full left-0 mt-1 w-full bg-gray-900 border border-gray-700
+                          rounded-xl shadow-2xl z-50 overflow-hidden'
+          >
             {buscandoSug ? (
               <p className='text-gray-500 text-sm px-4 py-3'>Buscando...</p>
             ) : (
@@ -268,26 +293,23 @@ export default function Explorador() {
         )}
       </div>
 
-      {/* ── Error ── */}
       {error && <p className='text-red-400 text-sm'>{error}</p>}
 
-      {/* ── Cargando ficha ── */}
       {cargandoFicha && (
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-8 text-center'>
           <p className='text-gray-400'>Cargando datos del activo...</p>
         </div>
       )}
 
-      {/* ── Ficha del activo ── */}
       {ficha && !cargandoFicha && (
         <FichaActivo
           ficha={ficha}
           onAñadirRadar={handleAñadirRadar}
           yaEnRadar={yaEnRadar}
+          onVerGrafica={handleVerGrafica}
         />
       )}
 
-      {/* ── Noticias ── */}
       {(ficha || cargandoNoticias) && (
         <div>
           <h2 className='text-lg font-bold text-gray-200 mb-3'>
@@ -301,7 +323,6 @@ export default function Explorador() {
         </div>
       )}
 
-      {/* ── Estado inicial ── */}
       {!ficha && !cargandoFicha && !error && (
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-12 text-center'>
           <p className='text-gray-600 text-lg'>Busca un activo para ver su ficha</p>
