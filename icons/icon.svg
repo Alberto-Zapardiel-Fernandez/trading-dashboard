@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fondo oscuro redondeado -->
+  <rect width="512" height="512" rx="90" fill="#0d1117"/>
+
+  <!-- Vela bajista (roja) - izquierda -->
+  <line x1="136" y1="130" x2="136" y2="175" stroke="#ef4444" stroke-width="12" stroke-linecap="round"/>
+  <rect x="106" y="175" width="60" height="110" rx="6" fill="#ef4444"/>
+  <line x1="136" y1="285" x2="136" y2="340" stroke="#ef4444" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Vela alcista (verde) - centro -->
+  <line x1="256" y1="110" x2="256" y2="165" stroke="#22c55e" stroke-width="12" stroke-linecap="round"/>
+  <rect x="226" y="165" width="60" height="130" rx="6" fill="#22c55e"/>
+  <line x1="256" y1="295" x2="256" y2="360" stroke="#22c55e" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Vela alcista grande (verde) - derecha -->
+  <line x1="376" y1="90" x2="376" y2="145" stroke="#22c55e" stroke-width="12" stroke-linecap="round"/>
+  <rect x="346" y="145" width="60" height="150" rx="6" fill="#22c55e"/>
+  <line x1="376" y1="295" x2="376" y2="345" stroke="#22c55e" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Línea de base / suelo -->
+  <line x1="60" y1="400" x2="452" y2="400" stroke="#374151" stroke-width="8" stroke-linecap="round"/>
+</svg>
