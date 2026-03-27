@@ -1,10 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Dashboard.jsx — Vista general de la cartera
 //
-// CAMBIOS Sprint 18:
-//   · Tarjetas de métricas clicables → navegan a su página relevante
-//   · Resumen de Cartera Bunker visible en el dashboard
-//   · Últimas cerradas ordenadas por fechaCierre DESC de forma robusta
+// Sprint 18: Tarjetas clicables, resumen Bunker, cerradas ordenadas
+// Sprint 24: Tarjeta de dividendos cobrados en el resumen Bunker
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useMemo } from 'react'
@@ -16,15 +14,13 @@ import { useConfig } from '../hooks/useConfig'
 import { COLECCIONES } from '../config/constants'
 import { useMovimientos } from '../hooks/useMovimientos'
 import { usePreciosVivos } from '../hooks/usePreciosVivos'
+import { useDividendos } from '../hooks/useDividendos' // ← Sprint 24
 import EquityCurve from '../components/EquityCurve.jsx'
 import { useModoPrivado } from '../context/ModoPrivadoContext'
 
 // ── Tarjeta clicable ──────────────────────────────────────────────────────────
-// Si recibe 'href', al hacer click navega a esa ruta.
-// El cursor cambia a pointer y hay un sutil efecto hover para indicar que es clicable.
 function Tarjeta({ titulo, valor, subtitulo, color = 'text-white', href }) {
   const navigate = useNavigate()
-
   return (
     <div
       onClick={() => href && navigate(href)}
@@ -36,7 +32,6 @@ function Tarjeta({ titulo, valor, subtitulo, color = 'text-white', href }) {
       <p className='text-gray-400 text-sm mb-1'>{titulo}</p>
       <p className={`text-3xl font-bold ${color}`}>{valor}</p>
       {subtitulo && <p className='text-gray-500 text-sm mt-1'>{subtitulo}</p>}
-      {/* Pequeña flecha indicadora de que es clicable */}
       {href && <p className='text-gray-700 text-xs mt-2'>Ver detalle →</p>}
     </div>
   )
@@ -68,6 +63,10 @@ export default function Dashboard() {
   const { totalMovimientos, saldoBunker } = useMovimientos()
   const { ocultar } = useModoPrivado()
 
+  // ── Sprint 24: total de dividendos cobrados en la cartera Bunker ──────────
+  // useDividendos ya escucha en tiempo real — solo necesitamos totalDividendos
+  const { totalDividendos } = useDividendos()
+
   // ── Cargar operaciones ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!usuario) return
@@ -81,12 +80,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!usuario) return
     const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.DCA), snap =>
-      setAportacionesDca(
-        snap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          // Retrocompatibilidad: sin ticker → VUSA.DE
-          .map(a => ({ ...a, ticker: a.ticker || 'VUSA.DE' }))
-      )
+      setAportacionesDca(snap.docs.map(d => ({ id: d.id, ...d.data() })).map(a => ({ ...a, ticker: a.ticker || 'VUSA.DE' })))
     )
     return unsub
   }, [usuario])
@@ -115,7 +109,6 @@ export default function Dashboard() {
     let invertido = 0
     let valorActual = 0
 
-    // Agrupar por ticker para calcular valor con el precio actual
     const grupos = {}
     for (const a of aportacionesDca) {
       if (!grupos[a.ticker]) grupos[a.ticker] = { invertido: 0, participaciones: 0 }
@@ -155,7 +148,6 @@ export default function Dashboard() {
       <div>
         <h2 className='text-lg font-bold text-gray-200 mb-3'>Capital</h2>
         <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
-          {/* Cuenta Trading — clicable → libro de caja */}
           <TarjetaCuenta
             etiqueta='Trading'
             colorBorde='border-blue-900 hover:border-blue-700'
@@ -166,8 +158,6 @@ export default function Dashboard() {
             linkLabel='Ver libro de caja →'
             href='/movimientos'
           />
-
-          {/* Cuenta Bunker — clicable → cartera DCA */}
           <TarjetaCuenta
             etiqueta='Bunker'
             colorBorde='border-amber-900 hover:border-amber-700'
@@ -178,8 +168,6 @@ export default function Dashboard() {
             linkLabel='Ver cartera →'
             href='/dca'
           />
-
-          {/* Total consolidado */}
           <div className='bg-gray-900 border border-gray-700 rounded-xl p-5'>
             <p className='text-gray-400 text-sm mb-1'>Total consolidado</p>
             <p className={`text-3xl font-bold ${saldoActual + saldoBunker >= 0 ? 'text-white' : 'text-red-400'}`}>
@@ -187,8 +175,6 @@ export default function Dashboard() {
             </p>
             <p className='text-gray-500 text-sm mt-1'>Trading + Bunker</p>
           </div>
-
-          {/* Riesgo 1% */}
           <Tarjeta
             titulo='Riesgo por operación'
             valor={ocultar(fmt(riesgo1pct))}
@@ -236,6 +222,27 @@ export default function Dashboard() {
               color={resumenBunker.pnlPct >= 0 ? 'text-green-400' : 'text-red-400'}
               href='/dca'
             />
+
+            {/* ── Sprint 24: Dividendos cobrados ── */}
+            {/* Solo aparece cuando hay dividendos registrados */}
+            {totalDividendos > 0 && (
+              <div
+                onClick={() => {
+                  /* navega a /dca */
+                }}
+                className='bg-gray-900 border border-purple-900 rounded-xl p-5 cursor-pointer
+                           hover:border-purple-700 hover:bg-gray-800/60 transition-colors'
+                // Usamos un div clicable igual que Tarjeta pero con estilo púrpura
+                // No reutilizamos Tarjeta porque queremos el color de borde especial
+              >
+                <p className='text-gray-400 text-sm mb-1'>Dividendos cobrados</p>
+                <p className='text-purple-300 text-3xl font-bold'>{ocultar(fmt(totalDividendos))}</p>
+                {resumenBunker.invertido > 0 && (
+                  <p className='text-purple-600 text-sm mt-1'>Yield: {((totalDividendos / resumenBunker.invertido) * 100).toFixed(2)}%</p>
+                )}
+                <p className='text-gray-700 text-xs mt-2'>Ver cartera →</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -345,7 +352,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Últimas 5 operaciones cerradas (más recientes primero) ── */}
+      {/* ── Últimas 5 operaciones cerradas ── */}
       {cerradas.length > 0 && (
         <div>
           <h2 className='text-lg font-bold text-gray-200 mb-3'>

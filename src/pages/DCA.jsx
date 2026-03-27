@@ -1,7 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // DCA.jsx — Cartera Bunker: seguimiento de inversión a largo plazo
 //
-// Antes: solo VUSA. Ahora: cualquier ticker (VUSA.DE, SAN.MC, ITX.MC, etc.)
+// Sprint 24: se añade registro de dividendos cobrados por ticker.
+//   · Formulario de dividendo dentro de cada TarjetaTicker (expandible)
+//   · Al guardar un dividendo → se crea automáticamente un movimiento DIVIDENDO
+//     en la cuenta BUNKER del Libro de caja (a través de useDividendos)
+//   · Yield real = total dividendos del ticker / total invertido en ese ticker
+//   · Resumen global de dividendos en el panel de totales
 //
 // MODELO DE DATOS en Firestore (users/{uid}/dca/{id}):
 //   fecha          string   'YYYY-MM-DD'
@@ -24,6 +29,7 @@ import { useAuth } from '../hooks/useAuth'
 import { COLECCIONES } from '../config/constants'
 import { usePreciosVivos } from '../hooks/usePreciosVivos'
 import { useModoPrivado } from '../context/ModoPrivadoContext'
+import { useDividendos } from '../hooks/useDividendos'
 
 // ── Tickers predefinidos para sugerencias rápidas ─────────────────────────────
 // El usuario puede escribir cualquier otro ticker de Yahoo Finance libremente
@@ -41,8 +47,159 @@ const fmt2 = n => (n || 0).toFixed(2)
 const fmt3 = n => (n || 0).toFixed(3)
 const fmt4 = n => (n || 0).toFixed(4)
 
-// ── Componente: Tarjeta resumen de un ticker ──────────────────────────────────
-function TarjetaTicker({ grupo, precioActual, ocultar, onEliminarAportacion, tickerActivo, setTickerActivo }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Componente: Formulario para registrar un dividendo de un ticker concreto
+//
+// Se muestra dentro de la sección expandida de cada TarjetaTicker.
+// Recibe el ticker y nombre ya rellenos, el usuario solo introduce
+// el importe, las participaciones en ese momento y la fecha.
+// ─────────────────────────────────────────────────────────────────────────────
+function FormularioDividendo({ ticker, nombre, totalParticipaciones, onGuardar, onCancelar }) {
+  const hoy = new Date().toISOString().split('T')[0]
+  const [form, setForm] = useState({
+    fecha: hoy,
+    importe: '',
+    // Pre-rellenamos con las participaciones actuales del grupo (editable)
+    participaciones: totalParticipaciones > 0 ? fmt4(totalParticipaciones) : '',
+    notas: ''
+  })
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  const inputBase = 'bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 outline-none text-gray-200 focus:border-purple-600 w-full text-sm'
+
+  const handleGuardar = async () => {
+    if (!form.fecha) return setError('Introduce la fecha de cobro')
+    if (!form.importe || parseFloat(form.importe) <= 0) return setError('Introduce el importe cobrado')
+    if (!form.participaciones || parseFloat(form.participaciones) <= 0) return setError('Introduce las participaciones que tenías')
+
+    setError('')
+    setGuardando(true)
+    try {
+      await onGuardar({
+        fecha: form.fecha,
+        ticker,
+        nombre,
+        importe: parseFloat(form.importe),
+        participaciones: parseFloat(form.participaciones),
+        notas: form.notas.trim()
+      })
+      // Limpiar solo el importe y notas al guardar — la fecha y participaciones
+      // se mantienen por si el usuario quiere registrar más cobros seguidos
+      setForm(f => ({ ...f, importe: '', notas: '' }))
+    } catch (e) {
+      setError('Error al guardar. Inténtalo de nuevo.', e)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className='bg-purple-950/30 border border-purple-900/50 rounded-xl p-4 mt-3'>
+      <h4 className='text-purple-300 text-sm font-bold mb-3'>💰 Registrar dividendo de {nombre || ticker}</h4>
+
+      <div className='grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3'>
+        {/* Fecha de cobro */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-xs'>Fecha de cobro</label>
+          <input
+            type='date'
+            value={form.fecha}
+            onChange={e => {
+              setError('')
+              setForm(f => ({ ...f, fecha: e.target.value }))
+            }}
+            className={inputBase}
+          />
+        </div>
+
+        {/* Importe cobrado */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-xs'>Importe cobrado (€)</label>
+          <input
+            type='number'
+            step='0.01'
+            min='0'
+            value={form.importe}
+            onChange={e => {
+              setError('')
+              setForm(f => ({ ...f, importe: e.target.value }))
+            }}
+            placeholder='12.50'
+            className='bg-gray-800 border border-purple-700 rounded-lg px-3 py-2 text-purple-300 outline-none focus:border-purple-500 w-full text-sm'
+          />
+        </div>
+
+        {/* Participaciones que se tenían en ese momento */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-xs'>Participaciones (en esa fecha)</label>
+          <input
+            type='number'
+            step='0.0001'
+            min='0'
+            value={form.participaciones}
+            onChange={e => {
+              setError('')
+              setForm(f => ({ ...f, participaciones: e.target.value }))
+            }}
+            placeholder={fmt4(totalParticipaciones)}
+            className={inputBase}
+          />
+        </div>
+
+        {/* Notas opcionales */}
+        <div className='flex flex-col gap-1'>
+          <label className='text-gray-400 text-xs'>Notas (opcional)</label>
+          <input
+            value={form.notas}
+            onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
+            placeholder='Dividendo trimestral...'
+            className={inputBase}
+          />
+        </div>
+      </div>
+
+      {error && <p className='text-red-400 text-xs mb-2'>⚠ {error}</p>}
+
+      <div className='flex gap-2'>
+        <button
+          onClick={handleGuardar}
+          disabled={guardando}
+          className='bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white font-medium py-1.5 px-4 rounded-lg transition-colors text-sm'
+        >
+          {guardando ? 'Guardando...' : 'Guardar dividendo'}
+        </button>
+        <button
+          onClick={onCancelar}
+          className='bg-gray-800 hover:bg-gray-700 text-gray-400 font-medium py-1.5 px-4 rounded-lg transition-colors text-sm'
+        >
+          Cancelar
+        </button>
+      </div>
+
+      <p className='text-gray-600 text-xs mt-2'>Se registrará automáticamente como DIVIDENDO en el Libro de caja (cuenta Bunker)</p>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Componente: Tarjeta resumen de un ticker
+//
+// Sprint 24: recibe resumenDividendos con los datos de dividendos de este ticker.
+// Muestra el yield real y un historial de cobros dentro del panel expandido.
+// ─────────────────────────────────────────────────────────────────────────────
+function TarjetaTicker({
+  grupo,
+  precioActual,
+  ocultar,
+  onEliminarAportacion,
+  tickerActivo,
+  setTickerActivo,
+  // Sprint 24 — nuevas props de dividendos
+  dividendosTicker, // array de dividendos filtrados para este ticker
+  onGuardarDividendo, // fn para guardar un dividendo nuevo
+  onEliminarDividendo // fn para eliminar un dividendo
+}) {
   const { ticker, nombre, aportaciones } = grupo
 
   const totalInvertido = aportaciones.reduce((s, a) => s + (a.invertido || 0), 0)
@@ -54,17 +211,31 @@ function TarjetaTicker({ grupo, precioActual, ocultar, onEliminarAportacion, tic
   const pnlPct = totalInvertido > 0 ? (pnl / totalInvertido) * 100 : 0
   const estaAbierto = tickerActivo === ticker
 
+  // ── Cálculos de dividendos para este ticker ────────────────────────────────
+  const totalDividendosTicker = dividendosTicker.reduce((s, d) => s + (d.importe || 0), 0)
+  // Yield real = dividendos cobrados / capital invertido × 100
+  const yieldReal = totalInvertido > 0 && totalDividendosTicker > 0 ? (totalDividendosTicker / totalInvertido) * 100 : 0
+
+  // Control local para mostrar/ocultar el formulario de nuevo dividendo
+  const [mostrarFormDividendo, setMostrarFormDividendo] = useState(false)
+
   return (
     <div className={`bg-gray-900 border rounded-xl overflow-hidden transition-colors ${estaAbierto ? 'border-amber-700' : 'border-gray-800'}`}>
       {/* ── Cabecera de la tarjeta (siempre visible) ── */}
       <button
-        onClick={() => setTickerActivo(estaAbierto ? null : ticker)}
+        onClick={() => {
+          setTickerActivo(estaAbierto ? null : ticker)
+          // Si se cierra la tarjeta, también ocultamos el formulario de dividendo
+          if (estaAbierto) setMostrarFormDividendo(false)
+        }}
         className='w-full p-4 flex items-center justify-between gap-4 hover:bg-gray-800/50 transition-colors'
       >
         <div className='flex items-center gap-3'>
           <div className='text-left'>
             <p className='font-bold text-amber-400 text-base'>{nombre || ticker}</p>
             <p className='text-gray-600 text-xs'>{ticker}</p>
+            {/* Yield real — se muestra en la cabecera si hay dividendos registrados */}
+            {yieldReal > 0 && <p className='text-purple-400 text-xs font-medium'>Yield: {yieldReal.toFixed(2)}%</p>}
           </div>
         </div>
 
@@ -92,7 +263,7 @@ function TarjetaTicker({ grupo, precioActual, ocultar, onEliminarAportacion, tic
         </div>
       </button>
 
-      {/* ── Métricas secundarias (siempre visibles en móvil) ── */}
+      {/* ── Métricas secundarias (solo en móvil, siempre visibles) ── */}
       <div className='px-4 pb-3 flex gap-4 text-sm sm:hidden'>
         <span className='text-gray-500'>
           Invertido <span className='text-blue-300'>{ocultar(`${fmt2(totalInvertido)} €`)}</span>
@@ -100,12 +271,17 @@ function TarjetaTicker({ grupo, precioActual, ocultar, onEliminarAportacion, tic
         <span className='text-gray-500'>
           PM <span className='text-purple-400'>{fmt3(precioMedio)} €</span>
         </span>
+        {yieldReal > 0 && (
+          <span className='text-gray-500'>
+            Yield <span className='text-purple-400'>{yieldReal.toFixed(2)}%</span>
+          </span>
+        )}
       </div>
 
-      {/* ── Detalle expandible: métricas + tabla de aportaciones ── */}
+      {/* ── Detalle expandible: métricas + aportaciones + dividendos ── */}
       {estaAbierto && (
         <div className='border-t border-gray-800'>
-          {/* Métricas del grupo */}
+          {/* ── Métricas del grupo ── */}
           <div className='grid grid-cols-2 sm:grid-cols-4 gap-3 p-4'>
             <div className='bg-gray-800/50 rounded-lg p-3'>
               <p className='text-gray-500 text-xs mb-1'>Total invertido</p>
@@ -125,7 +301,7 @@ function TarjetaTicker({ grupo, precioActual, ocultar, onEliminarAportacion, tic
             </div>
           </div>
 
-          {/* Tabla de aportaciones individuales */}
+          {/* ── Tabla de aportaciones individuales ── */}
           <div className='px-4 pb-4'>
             <table className='w-full text-sm'>
               <thead>
@@ -166,6 +342,94 @@ function TarjetaTicker({ grupo, precioActual, ocultar, onEliminarAportacion, tic
               </tbody>
             </table>
           </div>
+
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* ── SECCIÓN DIVIDENDOS (Sprint 24) ─────────────────────────── */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <div className='border-t border-gray-800 px-4 py-4'>
+            <div className='flex items-center justify-between mb-3'>
+              <div className='flex items-center gap-3'>
+                <h4 className='text-gray-300 text-sm font-bold'>Dividendos cobrados</h4>
+                {/* Resumen rápido si hay dividendos */}
+                {totalDividendosTicker > 0 && (
+                  <span className='bg-purple-900/40 text-purple-300 text-xs px-2 py-0.5 rounded-full'>
+                    {ocultar(`${fmt2(totalDividendosTicker)} € · yield ${yieldReal.toFixed(2)}%`)}
+                  </span>
+                )}
+              </div>
+              {/* Botón para mostrar el formulario de nuevo dividendo */}
+              {!mostrarFormDividendo && (
+                <button
+                  onClick={() => setMostrarFormDividendo(true)}
+                  className='text-xs bg-purple-900/50 hover:bg-purple-800/50 text-purple-300 px-3 py-1 rounded-lg transition-colors'
+                >
+                  + Registrar cobro
+                </button>
+              )}
+            </div>
+
+            {/* Formulario de nuevo dividendo (se muestra al pulsar el botón) */}
+            {mostrarFormDividendo && (
+              <FormularioDividendo
+                ticker={ticker}
+                nombre={nombre}
+                totalParticipaciones={totalParticipaciones}
+                onGuardar={async datos => {
+                  await onGuardarDividendo(datos)
+                  setMostrarFormDividendo(false)
+                }}
+                onCancelar={() => setMostrarFormDividendo(false)}
+              />
+            )}
+
+            {/* Historial de dividendos cobrados */}
+            {dividendosTicker.length === 0 ? (
+              <p className='text-gray-600 text-xs'>
+                Sin dividendos registrados. {!mostrarFormDividendo && 'Pulsa "+ Registrar cobro" para añadir uno.'}
+              </p>
+            ) : (
+              <table className='w-full text-sm mt-2'>
+                <thead>
+                  <tr className='border-b border-gray-800'>
+                    <th className='text-left  text-gray-500 pb-2 font-medium text-xs'>Fecha</th>
+                    <th className='text-right text-gray-500 pb-2 font-medium text-xs'>Importe</th>
+                    <th className='text-right text-gray-500 pb-2 font-medium text-xs'>€/acción</th>
+                    <th className='text-right text-gray-500 pb-2 font-medium text-xs'>Participac.</th>
+                    <th className='text-left  text-gray-500 pb-2 font-medium text-xs pl-3'>Notas</th>
+                    <th className='pb-2'></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dividendosTicker.map(d => {
+                    // €/acción = importe / participaciones que se tenían entonces
+                    const eurPorAccion = d.participaciones > 0 ? d.importe / d.participaciones : 0
+                    return (
+                      <tr
+                        key={d.id}
+                        className='border-b border-gray-800/50 last:border-0'
+                      >
+                        <td className='py-2 text-gray-400 text-xs'>{(d.fecha || '').split('-').reverse().join('-')}</td>
+                        <td className='py-2 text-right text-purple-300 font-medium'>{ocultar(`${fmt2(d.importe)} €`)}</td>
+                        <td className='py-2 text-right text-gray-400 text-xs'>{fmt4(eurPorAccion)} €</td>
+                        <td className='py-2 text-right text-gray-500 text-xs'>{fmt4(d.participaciones)}</td>
+                        <td className='py-2 text-left text-gray-500 text-xs pl-3 max-w-[120px] truncate'>{d.notas || '—'}</td>
+                        <td className='py-2 text-right'>
+                          <button
+                            onClick={() => onEliminarDividendo(d)}
+                            className='text-red-800 hover:text-red-500 transition-colors text-xs'
+                            title='Eliminar dividendo (también borra el movimiento vinculado)'
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+          {/* ── Fin sección dividendos ─────────────────────────────────── */}
         </div>
       )}
     </div>
@@ -179,6 +443,9 @@ export default function DCA() {
   const [aportaciones, setAportaciones] = useState([])
   const [tickerActivo, setTickerActivo] = useState(null) // qué tarjeta está expandida
   const [error, setError] = useState('')
+
+  // ── Hook de dividendos (Sprint 24) ────────────────────────────────────────
+  const { dividendos, añadirDividendo, eliminarDividendo, totalDividendos } = useDividendos()
 
   // Estado del formulario nueva aportación
   const [form, setForm] = useState({
@@ -204,11 +471,7 @@ export default function DCA() {
   }, [usuario])
 
   // ── Extraer tickers únicos para pedir precios ──────────────────────────────
-  // useMemo evita recalcular en cada render
   const tickersUnicos = useMemo(() => [...new Set(aportaciones.map(a => a.ticker))], [aportaciones])
-
-  // Pedimos precios automáticos para todos los tickers de la cartera
-  // usePreciosVivos ya acepta un array — se actualiza cuando cambia tickersUnicos
   const { precios } = usePreciosVivos(tickersUnicos)
 
   // ── Agrupar aportaciones por ticker ───────────────────────────────────────
@@ -220,7 +483,6 @@ export default function DCA() {
       }
       mapa[a.ticker].aportaciones.push(a)
     }
-    // Ordenar grupos por total invertido descendente
     return Object.values(mapa).sort(
       (a, b) => b.aportaciones.reduce((s, x) => s + x.invertido, 0) - a.aportaciones.reduce((s, x) => s + x.invertido, 0)
     )
@@ -276,6 +538,12 @@ export default function DCA() {
     await deleteDoc(doc(db, 'users', usuario.uid, COLECCIONES.DCA, id))
   }
 
+  // ── Confirmar antes de eliminar un dividendo ───────────────────────────────
+  const handleEliminarDividendo = async dividendo => {
+    if (!confirm(`¿Eliminar el dividendo de ${fmt2(dividendo.importe)} €?\nTambién se eliminará el movimiento del Libro de caja.`)) return
+    await eliminarDividendo(dividendo)
+  }
+
   // ── Rellenar formulario al seleccionar sugerencia ─────────────────────────
   const seleccionarSugerencia = ({ ticker, nombre }) => {
     setForm(f => ({ ...f, ticker, nombre }))
@@ -315,6 +583,19 @@ export default function DCA() {
               {ocultar(`${totales.pnlPct >= 0 ? '+' : ''}${totales.pnlPct.toFixed(2)}%`)}
             </p>
           </div>
+
+          {/* ── Tarjeta de dividendos totales (Sprint 24) ── */}
+          {/* Solo aparece si hay algún dividendo registrado */}
+          {totalDividendos > 0 && (
+            <div className='bg-gray-900 border border-purple-900 rounded-xl p-4 col-span-2 sm:col-span-1'>
+              <p className='text-purple-400 text-xs font-bold uppercase tracking-wider mb-1'>Dividendos cobrados</p>
+              <p className='text-purple-300 text-xl font-bold'>{ocultar(`${fmt2(totalDividendos)} €`)}</p>
+              {/* Yield global = dividendos / invertido total */}
+              {totales.invertido > 0 && (
+                <p className='text-purple-600 text-xs mt-1'>Yield global: {((totalDividendos / totales.invertido) * 100).toFixed(2)}%</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -413,8 +694,7 @@ export default function DCA() {
 
         <button
           onClick={añadirAportacion}
-          className='mt-3 bg-amber-700 hover:bg-amber-600 text-white font-medium
-                     py-2 px-5 rounded-lg transition-colors text-sm'
+          className='mt-3 bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg transition-colors text-sm'
         >
           Añadir aportación
         </button>
@@ -426,7 +706,8 @@ export default function DCA() {
       ) : (
         <div className='flex flex-col gap-3'>
           <p className='text-gray-600 text-xs'>
-            Toca una posición para ver el detalle de aportaciones · {grupos.length} posición{grupos.length !== 1 ? 'es' : ''}
+            Toca una posición para ver el detalle · {grupos.length} posición{grupos.length !== 1 ? 'es' : ''} · pulsa "+ Registrar cobro" para añadir
+            dividendos
           </p>
           {grupos.map(g => (
             <TarjetaTicker
@@ -437,6 +718,10 @@ export default function DCA() {
               onEliminarAportacion={eliminarAportacion}
               tickerActivo={tickerActivo}
               setTickerActivo={setTickerActivo}
+              // Props de dividendos (Sprint 24)
+              dividendosTicker={dividendos.filter(d => d.ticker === g.ticker)}
+              onGuardarDividendo={añadirDividendo}
+              onEliminarDividendo={handleEliminarDividendo}
             />
           ))}
         </div>

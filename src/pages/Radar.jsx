@@ -1,8 +1,31 @@
 // src/pages/Radar.jsx
-import { useState, useRef } from 'react'
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX: Los formularios inline (SL/TP, alertas, nota) ahora se cierran al
+// hacer click fuera de ellos. Se usa un hook useClickFuera() reutilizable
+// que detecta clicks en el documento fuera del ref del contenedor.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useState, useRef, useEffect } from 'react'
 import { useRadarContext } from '../hooks/useRadarContext.js'
 import { buscarTickers } from '../services/yahooFinance'
 
+// ── Hook: cerrar al hacer click fuera ────────────────────────────────────────
+// Recibe un ref del contenedor y una función a llamar cuando se detecta
+// un click fuera de ese contenedor.
+function useClickFuera(ref, onClickFuera) {
+  useEffect(() => {
+    const handler = e => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        onClickFuera()
+      }
+    }
+    // 'mousedown' en lugar de 'click' para que se dispare antes del blur
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [ref, onClickFuera])
+}
+
+// ── Badges de estado ──────────────────────────────────────────────────────────
 const ESTADO_CONFIG = {
   SOBREVENTA: { label: '📉 Sobreventa', bg: 'bg-teal-900/40', text: 'text-teal-400', border: 'border-teal-800' },
   SOBRECOMPRA: { label: '📈 Sobrecompra', bg: 'bg-red-900/40', text: 'text-red-400', border: 'border-red-800' },
@@ -13,13 +36,162 @@ const ESTADO_CONFIG = {
 
 function EstadoBadge({ estado }) {
   const cfg = ESTADO_CONFIG[estado] ?? ESTADO_CONFIG.NEUTRAL
+  return <span className={`text-xs font-semibold px-2 py-1 rounded-full border ${cfg.bg} ${cfg.text} ${cfg.border}`}>{cfg.label}</span>
+}
+
+// ── Componente inline editable: SL/TP ────────────────────────────────────────
+// Extraído a componente propio para que cada uno tenga su propio ref
+function EditorSLTP({ ticker, onGuardar, onCancelar }) {
+  const ref = useRef(null)
+  const [stop, setStop] = useState(ticker.stop ?? '')
+  const [target, setTarget] = useState(ticker.target ?? '')
+
+  useClickFuera(ref, onCancelar)
+
+  const guardar = () => {
+    onGuardar(stop !== '' ? parseFloat(stop) : null, target !== '' ? parseFloat(target) : null)
+  }
+
   return (
-    <span
-      className={`text-xs font-semibold px-2 py-1 rounded-full border
-                      ${cfg.bg} ${cfg.text} ${cfg.border}`}
+    <div
+      ref={ref}
+      className='flex flex-col gap-1 items-end'
     >
-      {cfg.label}
-    </span>
+      <input
+        type='number'
+        placeholder='Stop'
+        value={stop}
+        onChange={e => setStop(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') guardar()
+          if (e.key === 'Escape') onCancelar()
+        }}
+        autoFocus
+        className='bg-gray-800 border border-red-800 rounded px-2 py-1 text-red-400 w-24 text-right text-xs'
+      />
+      <input
+        type='number'
+        placeholder='Target'
+        value={target}
+        onChange={e => setTarget(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') guardar()
+          if (e.key === 'Escape') onCancelar()
+        }}
+        className='bg-gray-800 border border-green-800 rounded px-2 py-1 text-green-400 w-24 text-right text-xs'
+      />
+      <div className='flex gap-1'>
+        <button
+          onClick={guardar}
+          className='text-xs bg-yellow-600 hover:bg-yellow-500 text-black font-bold px-2 py-1 rounded'
+        >
+          Guardar
+        </button>
+        <button
+          onClick={onCancelar}
+          className='text-xs text-gray-600 hover:text-gray-400 px-2 py-1'
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Componente inline editable: Alertas precio ───────────────────────────────
+function EditorAlertas({ ticker, onGuardar, onCancelar }) {
+  const ref = useRef(null)
+  const [sobre, setSobre] = useState(ticker.alertaSobre ?? '')
+  const [bajo, setBajo] = useState(ticker.alertaBajo ?? '')
+
+  useClickFuera(ref, onCancelar)
+
+  const guardar = () => onGuardar(sobre, bajo)
+
+  return (
+    <div
+      ref={ref}
+      className='flex flex-col gap-1 items-end'
+    >
+      <input
+        type='number'
+        placeholder='Precio ≥'
+        value={sobre}
+        onChange={e => setSobre(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') guardar()
+          if (e.key === 'Escape') onCancelar()
+        }}
+        autoFocus
+        className='bg-gray-800 border border-orange-700 rounded px-2 py-1 text-orange-400 w-24 text-right text-xs'
+      />
+      <input
+        type='number'
+        placeholder='Precio ≤'
+        value={bajo}
+        onChange={e => setBajo(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') guardar()
+          if (e.key === 'Escape') onCancelar()
+        }}
+        className='bg-gray-800 border border-blue-700 rounded px-2 py-1 text-blue-400 w-24 text-right text-xs'
+      />
+      <div className='flex gap-1'>
+        <button
+          onClick={guardar}
+          className='text-xs bg-yellow-600 hover:bg-yellow-500 text-black font-bold px-2 py-1 rounded'
+        >
+          Guardar
+        </button>
+        <button
+          onClick={onCancelar}
+          className='text-xs text-gray-600 hover:text-gray-400 px-2 py-1'
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Componente inline editable: Nota ─────────────────────────────────────────
+function EditorNota({ ticker, onGuardar, onCancelar }) {
+  const ref = useRef(null)
+  const [nota, setNota] = useState(ticker.nota ?? '')
+
+  useClickFuera(ref, onCancelar)
+
+  return (
+    <div
+      ref={ref}
+      className='flex items-center gap-2 mt-1'
+    >
+      <input
+        type='text'
+        value={nota}
+        onChange={e => setNota(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') onGuardar(nota)
+          if (e.key === 'Escape') onCancelar()
+        }}
+        placeholder='Añadir nota...'
+        autoFocus
+        className='bg-gray-800 border border-gray-600 rounded px-2 py-1
+                   text-gray-300 text-xs w-48 outline-none focus:border-yellow-600'
+      />
+      <button
+        onClick={() => onGuardar(nota)}
+        className='text-xs text-yellow-500 hover:text-yellow-400'
+      >
+        ✓
+      </button>
+      <button
+        onClick={onCancelar}
+        className='text-xs text-gray-600 hover:text-gray-400'
+      >
+        ✕
+      </button>
+    </div>
   )
 }
 
@@ -28,30 +200,7 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
   const d = datos[ticker.symbol]
   const [editandoSLTP, setEditandoSLTP] = useState(false)
   const [editandoAlertas, setEditandoAlertas] = useState(false)
-  // ── NUEVO: estado local para editar la nota ──
   const [editandoNota, setEditandoNota] = useState(false)
-  const [nota, setNota] = useState(ticker.nota ?? '')
-
-  const [stop, setStop] = useState(ticker.stop ?? '')
-  const [target, setTarget] = useState(ticker.target ?? '')
-  const [sobre, setSobre] = useState(ticker.alertaSobre ?? '')
-  const [bajo, setBajo] = useState(ticker.alertaBajo ?? '')
-
-  const guardarSLTP = () => {
-    onActualizarStopTarget(ticker.id, stop !== '' ? parseFloat(stop) : null, target !== '' ? parseFloat(target) : null)
-    setEditandoSLTP(false)
-  }
-
-  const guardarAlertas = () => {
-    onActualizarAlertas(ticker.id, sobre, bajo)
-    setEditandoAlertas(false)
-  }
-
-  // ── NUEVO: guarda la nota en Firestore ──
-  const guardarNota = () => {
-    onActualizarNota(ticker.id, nota)
-    setEditandoNota(false)
-  }
 
   const precio = d?.precioActual
   const tocaStop = precio && ticker.stop && precio <= ticker.stop
@@ -59,48 +208,24 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
   const colorFila = tocaTarget ? 'border-l-2 border-l-green-500' : tocaStop ? 'border-l-2 border-l-red-500' : ''
 
   return (
-    <tr
-      className={`border-b border-gray-800 last:border-0 hover:bg-gray-800/30
-                    transition-colors ${colorFila}`}
-    >
+    <tr className={`border-b border-gray-800 last:border-0 hover:bg-gray-800/30 transition-colors ${colorFila}`}>
       {/* Ticker + nombre + nota */}
       <td className='p-4'>
         <p className='font-bold text-cyan-400'>{ticker.symbol}</p>
         {ticker.nombre && <p className='text-gray-500 text-xs mt-0.5'>{ticker.nombre}</p>}
-        {/* ── NUEVO: nota visible + editable ── */}
         {editandoNota ? (
-          <div className='flex items-center gap-2 mt-1'>
-            <input
-              type='text'
-              value={nota}
-              onChange={e => setNota(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') guardarNota()
-                if (e.key === 'Escape') setEditandoNota(false)
-              }}
-              placeholder='Añadir nota...'
-              autoFocus
-              className='bg-gray-800 border border-gray-600 rounded px-2 py-1
-                         text-gray-300 text-xs w-48 outline-none focus:border-yellow-600'
-            />
-            <button
-              onClick={guardarNota}
-              className='text-xs text-yellow-500 hover:text-yellow-400'
-            >
-              ✓
-            </button>
-            <button
-              onClick={() => setEditandoNota(false)}
-              className='text-xs text-gray-600 hover:text-gray-400'
-            >
-              ✕
-            </button>
-          </div>
+          <EditorNota
+            ticker={ticker}
+            onGuardar={nota => {
+              onActualizarNota(ticker.id, nota)
+              setEditandoNota(false)
+            }}
+            onCancelar={() => setEditandoNota(false)}
+          />
         ) : (
           <p
             onClick={() => setEditandoNota(true)}
-            className='text-gray-600 text-xs mt-1 cursor-pointer hover:text-gray-400
-                       transition-colors italic'
+            className='text-gray-600 text-xs mt-1 cursor-pointer hover:text-gray-400 transition-colors italic'
             title='Clic para editar nota'
           >
             {ticker.nota ? `📝 ${ticker.nota}` : '+ nota'}
@@ -108,10 +233,12 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
         )}
       </td>
 
+      {/* Precio */}
       <td className='p-4 text-right'>
         {d ? <span className='text-white font-bold'>{d.precioActual.toFixed(2)}</span> : <span className='text-gray-600 text-sm'>—</span>}
       </td>
 
+      {/* RSI */}
       <td className='p-4 text-right'>
         {d?.rsi != null ? (
           <span className={`font-medium ${d.rsi < 30 ? 'text-teal-400' : d.rsi > 70 ? 'text-red-400' : 'text-gray-300'}`}>{d.rsi.toFixed(1)}</span>
@@ -120,6 +247,7 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
         )}
       </td>
 
+      {/* SMA50 / SMA200 */}
       <td className='p-4 text-right text-sm'>
         {d?.sma50 != null ? (
           <span>
@@ -135,31 +263,14 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
       {/* SL / TP */}
       <td className='p-4 text-right text-sm'>
         {editandoSLTP ? (
-          <div className='flex flex-col gap-1 items-end'>
-            <input
-              type='number'
-              placeholder='Stop'
-              value={stop}
-              onChange={e => setStop(e.target.value)}
-              className='bg-gray-800 border border-red-800 rounded px-2 py-1
-                         text-red-400 w-24 text-right text-xs'
-            />
-            <input
-              type='number'
-              placeholder='Target'
-              value={target}
-              onChange={e => setTarget(e.target.value)}
-              className='bg-gray-800 border border-green-800 rounded px-2 py-1
-                         text-green-400 w-24 text-right text-xs'
-            />
-            <button
-              onClick={guardarSLTP}
-              className='text-xs bg-yellow-600 hover:bg-yellow-500 text-black
-                         font-bold px-2 py-1 rounded'
-            >
-              Guardar
-            </button>
-          </div>
+          <EditorSLTP
+            ticker={ticker}
+            onGuardar={(s, t) => {
+              onActualizarStopTarget(ticker.id, s, t)
+              setEditandoSLTP(false)
+            }}
+            onCancelar={() => setEditandoSLTP(false)}
+          />
         ) : (
           <div
             className='flex flex-col items-end gap-0.5 cursor-pointer'
@@ -179,31 +290,14 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
       {/* Alertas precio */}
       <td className='p-4 text-right text-sm'>
         {editandoAlertas ? (
-          <div className='flex flex-col gap-1 items-end'>
-            <input
-              type='number'
-              placeholder='Precio ≥'
-              value={sobre}
-              onChange={e => setSobre(e.target.value)}
-              className='bg-gray-800 border border-orange-700 rounded px-2 py-1
-                         text-orange-400 w-24 text-right text-xs'
-            />
-            <input
-              type='number'
-              placeholder='Precio ≤'
-              value={bajo}
-              onChange={e => setBajo(e.target.value)}
-              className='bg-gray-800 border border-blue-700 rounded px-2 py-1
-                         text-blue-400 w-24 text-right text-xs'
-            />
-            <button
-              onClick={guardarAlertas}
-              className='text-xs bg-yellow-600 hover:bg-yellow-500 text-black
-                         font-bold px-2 py-1 rounded'
-            >
-              Guardar
-            </button>
-          </div>
+          <EditorAlertas
+            ticker={ticker}
+            onGuardar={(s, b) => {
+              onActualizarAlertas(ticker.id, s, b)
+              setEditandoAlertas(false)
+            }}
+            onCancelar={() => setEditandoAlertas(false)}
+          />
         ) : (
           <div
             className='flex flex-col items-end gap-0.5 cursor-pointer'
@@ -216,8 +310,10 @@ function FilaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onActua
         )}
       </td>
 
+      {/* Estado */}
       <td className='p-4 text-center'>{d ? <EstadoBadge estado={d.estado} /> : <span className='text-gray-600 text-sm'>Cargando...</span>}</td>
 
+      {/* Eliminar */}
       <td className='p-4 text-right'>
         <button
           onClick={() => onEliminar(ticker.id)}
@@ -235,30 +331,7 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
   const d = datos[ticker.symbol]
   const [editandoSLTP, setEditandoSLTP] = useState(false)
   const [editandoAlertas, setEditandoAlertas] = useState(false)
-  // ── NUEVO ──
   const [editandoNota, setEditandoNota] = useState(false)
-  const [nota, setNota] = useState(ticker.nota ?? '')
-
-  const [stop, setStop] = useState(ticker.stop ?? '')
-  const [target, setTarget] = useState(ticker.target ?? '')
-  const [sobre, setSobre] = useState(ticker.alertaSobre ?? '')
-  const [bajo, setBajo] = useState(ticker.alertaBajo ?? '')
-
-  const guardarSLTP = () => {
-    onActualizarStopTarget(ticker.id, stop !== '' ? parseFloat(stop) : null, target !== '' ? parseFloat(target) : null)
-    setEditandoSLTP(false)
-  }
-
-  const guardarAlertas = () => {
-    onActualizarAlertas(ticker.id, sobre, bajo)
-    setEditandoAlertas(false)
-  }
-
-  // ── NUEVO ──
-  const guardarNota = () => {
-    onActualizarNota(ticker.id, nota)
-    setEditandoNota(false)
-  }
 
   const precio = d?.precioActual
   const tocaStop = precio && ticker.stop && precio <= ticker.stop
@@ -266,49 +339,25 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
   const bordeColor = tocaTarget ? 'border-l-4 border-l-green-500' : tocaStop ? 'border-l-4 border-l-red-500' : ''
 
   return (
-    <div
-      className={`bg-gray-900 border border-gray-800 rounded-xl p-4
-                     flex flex-col gap-3 ${bordeColor}`}
-    >
+    <div className={`bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3 ${bordeColor}`}>
       {/* Fila 1: ticker + precio + eliminar */}
       <div className='flex items-start justify-between'>
         <div>
           <span className='font-bold text-cyan-400 text-base'>{ticker.symbol}</span>
           {ticker.nombre && <p className='text-gray-500 text-xs mt-0.5'>{ticker.nombre}</p>}
-          {/* ── NUEVO: nota visible + editable ── */}
           {editandoNota ? (
-            <div className='flex items-center gap-2 mt-1'>
-              <input
-                type='text'
-                value={nota}
-                onChange={e => setNota(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') guardarNota()
-                  if (e.key === 'Escape') setEditandoNota(false)
-                }}
-                placeholder='Añadir nota...'
-                autoFocus
-                className='bg-gray-800 border border-gray-600 rounded px-2 py-1
-                           text-gray-300 text-xs w-44 outline-none focus:border-yellow-600'
-              />
-              <button
-                onClick={guardarNota}
-                className='text-xs text-yellow-500 hover:text-yellow-400'
-              >
-                ✓
-              </button>
-              <button
-                onClick={() => setEditandoNota(false)}
-                className='text-xs text-gray-600 hover:text-gray-400'
-              >
-                ✕
-              </button>
-            </div>
+            <EditorNota
+              ticker={ticker}
+              onGuardar={nota => {
+                onActualizarNota(ticker.id, nota)
+                setEditandoNota(false)
+              }}
+              onCancelar={() => setEditandoNota(false)}
+            />
           ) : (
             <p
               onClick={() => setEditandoNota(true)}
-              className='text-gray-600 text-xs mt-1 cursor-pointer hover:text-gray-400
-                         transition-colors italic'
+              className='text-gray-600 text-xs mt-1 cursor-pointer hover:text-gray-400 transition-colors italic'
             >
               {ticker.nota ? `📝 ${ticker.nota}` : '+ nota'}
             </p>
@@ -340,37 +389,14 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
 
       {/* Fila 3: SL / TP */}
       {editandoSLTP ? (
-        <div className='flex gap-2 flex-wrap items-end'>
-          <div className='flex flex-col gap-1'>
-            <label className='text-gray-500 text-xs'>Stop Loss</label>
-            <input
-              type='number'
-              placeholder='—'
-              value={stop}
-              onChange={e => setStop(e.target.value)}
-              className='bg-gray-800 border border-red-800 rounded px-2 py-1
-                         text-red-400 w-28 text-sm'
-            />
-          </div>
-          <div className='flex flex-col gap-1'>
-            <label className='text-gray-500 text-xs'>Take Profit</label>
-            <input
-              type='number'
-              placeholder='—'
-              value={target}
-              onChange={e => setTarget(e.target.value)}
-              className='bg-gray-800 border border-green-800 rounded px-2 py-1
-                         text-green-400 w-28 text-sm'
-            />
-          </div>
-          <button
-            onClick={guardarSLTP}
-            className='bg-yellow-600 hover:bg-yellow-500 text-black
-                       font-bold px-3 py-1.5 rounded text-sm'
-          >
-            Guardar
-          </button>
-        </div>
+        <EditorSLTP
+          ticker={ticker}
+          onGuardar={(s, t) => {
+            onActualizarStopTarget(ticker.id, s, t)
+            setEditandoSLTP(false)
+          }}
+          onCancelar={() => setEditandoSLTP(false)}
+        />
       ) : (
         <div
           className='flex gap-4 cursor-pointer'
@@ -387,39 +413,16 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
         </div>
       )}
 
-      {/* Fila 4: alertas de precio */}
+      {/* Fila 4: alertas precio */}
       {editandoAlertas ? (
-        <div className='flex gap-2 flex-wrap items-end'>
-          <div className='flex flex-col gap-1'>
-            <label className='text-gray-500 text-xs'>Alerta precio ≥</label>
-            <input
-              type='number'
-              placeholder='—'
-              value={sobre}
-              onChange={e => setSobre(e.target.value)}
-              className='bg-gray-800 border border-orange-700 rounded px-2 py-1
-                         text-orange-400 w-28 text-sm'
-            />
-          </div>
-          <div className='flex flex-col gap-1'>
-            <label className='text-gray-500 text-xs'>Alerta precio ≤</label>
-            <input
-              type='number'
-              placeholder='—'
-              value={bajo}
-              onChange={e => setBajo(e.target.value)}
-              className='bg-gray-800 border border-blue-700 rounded px-2 py-1
-                         text-blue-400 w-28 text-sm'
-            />
-          </div>
-          <button
-            onClick={guardarAlertas}
-            className='bg-yellow-600 hover:bg-yellow-500 text-black
-                       font-bold px-3 py-1.5 rounded text-sm'
-          >
-            Guardar
-          </button>
-        </div>
+        <EditorAlertas
+          ticker={ticker}
+          onGuardar={(s, b) => {
+            onActualizarAlertas(ticker.id, s, b)
+            setEditandoAlertas(false)
+          }}
+          onCancelar={() => setEditandoAlertas(false)}
+        />
       ) : (
         <div
           className='flex gap-4 cursor-pointer'
@@ -437,16 +440,7 @@ function TarjetaTicker({ ticker, datos, onEliminar, onActualizarStopTarget, onAc
 
 // ── Página principal ──────────────────────────────────────────────────────────
 export default function Radar() {
-  const {
-    tickers,
-    datos,
-    cargando,
-    añadirTicker,
-    eliminarTicker,
-    actualizarStopTarget,
-    actualizarAlertas,
-    actualizarNota // ── NUEVO
-  } = useRadarContext()
+  const { tickers, datos, cargando, añadirTicker, eliminarTicker, actualizarStopTarget, actualizarAlertas, actualizarNota } = useRadarContext()
 
   const [input, setInput] = useState('')
   const [sugerencias, setSugerencias] = useState([])
@@ -488,7 +482,7 @@ export default function Radar() {
 
   return (
     <div className='flex flex-col gap-6 py-4'>
-      {/* ── Cabecera + buscador ── */}
+      {/* Cabecera + buscador */}
       <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
         <div>
           <h1 className='text-2xl font-bold text-white'>Radar de vigilancia</h1>
@@ -507,14 +501,10 @@ export default function Radar() {
                 }}
                 onKeyDown={e => e.key === 'Enter' && handleAñadir()}
                 className='bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white
-                           placeholder-gray-500 w-full sm:w-72
-                           focus:outline-none focus:border-yellow-600'
+                           placeholder-gray-500 w-full sm:w-72 focus:outline-none focus:border-yellow-600'
               />
               {mostrarSug && (
-                <div
-                  className='absolute top-full left-0 mt-1 w-full bg-gray-900
-                                border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden'
-                >
+                <div className='absolute top-full left-0 mt-1 w-full bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden'>
                   {buscandoSug ? (
                     <p className='text-gray-500 text-sm px-4 py-3'>Buscando...</p>
                   ) : (
@@ -522,8 +512,7 @@ export default function Radar() {
                       <button
                         key={s.symbol}
                         onClick={() => seleccionar(s.symbol, s.nombre)}
-                        className='w-full text-left px-4 py-2.5 hover:bg-gray-800
-                                   transition-colors flex items-center gap-3'
+                        className='w-full text-left px-4 py-2.5 hover:bg-gray-800 transition-colors flex items-center gap-3'
                       >
                         <span className='text-cyan-400 font-bold text-sm w-24 shrink-0'>{s.symbol}</span>
                         <span className='text-gray-300 text-sm truncate flex-1'>{s.nombre}</span>
@@ -536,8 +525,7 @@ export default function Radar() {
             </div>
             <button
               onClick={handleAñadir}
-              className='bg-yellow-600 hover:bg-yellow-500 text-black font-bold
-                         px-4 py-2 rounded-lg transition-colors shrink-0'
+              className='bg-yellow-600 hover:bg-yellow-500 text-black font-bold px-4 py-2 rounded-lg transition-colors shrink-0'
             >
               + Añadir
             </button>
@@ -545,7 +533,7 @@ export default function Radar() {
         </div>
       </div>
 
-      {/* ── Contenido ── */}
+      {/* Contenido */}
       {cargando ? (
         <p className='text-gray-500 text-sm'>Cargando radar...</p>
       ) : tickers.length === 0 ? (
@@ -571,17 +559,14 @@ export default function Radar() {
           </div>
 
           {/* Escritorio */}
-          <div
-            className='hidden md:block bg-gray-900 border border-gray-800
-                          rounded-xl overflow-hidden'
-          >
+          <div className='hidden md:block bg-gray-900 border border-gray-800 rounded-xl overflow-hidden'>
             <table className='w-full'>
               <thead>
                 <tr className='border-b border-gray-800'>
-                  <th className='text-left   text-gray-400 p-4 font-medium'>Ticker</th>
-                  <th className='text-right  text-gray-400 p-4 font-medium'>Precio</th>
-                  <th className='text-right  text-gray-400 p-4 font-medium'>RSI</th>
-                  <th className='text-right  text-gray-400 p-4 font-medium'>
+                  <th className='text-left  text-gray-400 p-4 font-medium'>Ticker</th>
+                  <th className='text-right text-gray-400 p-4 font-medium'>Precio</th>
+                  <th className='text-right text-gray-400 p-4 font-medium'>RSI</th>
+                  <th className='text-right text-gray-400 p-4 font-medium'>
                     <span className='text-yellow-400'>SMA50</span>
                     <span className='text-gray-600'> / </span>
                     <span className='text-blue-400'>SMA200</span>
@@ -616,8 +601,7 @@ export default function Radar() {
           {Object.entries(ESTADO_CONFIG).map(([key, cfg]) => (
             <span
               key={key}
-              className={`text-xs px-2 py-1 rounded-full border
-                          ${cfg.bg} ${cfg.text} ${cfg.border}`}
+              className={`text-xs px-2 py-1 rounded-full border ${cfg.bg} ${cfg.text} ${cfg.border}`}
             >
               {cfg.label}
             </span>

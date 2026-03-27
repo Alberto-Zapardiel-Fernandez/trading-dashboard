@@ -1,8 +1,9 @@
 // src/pages/Configuracion.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Ajustes personales del usuario.
-// Sección "Alertas del radar" ampliada con todos los controles del motor
-// de señales técnicas: RSI, SMA, MACD, volumen y horario de silencio.
+// Sprint 25: se añade el toggle alertasNoticias para activar/desactivar
+//   las alertas de noticias relevantes por Telegram (ejecutadas desde
+//   GitHub Actions cada 30 minutos, igual que las técnicas).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react'
@@ -106,7 +107,6 @@ export default function Configuracion() {
     setTimeout(() => setResultadoPrueba(null), 3000)
   }
 
-  // Color del umbral RSI
   const colorRsi = umbraRsi <= 25 ? 'text-teal-400' : umbraRsi <= 30 ? 'text-cyan-400' : 'text-yellow-400'
 
   return (
@@ -208,11 +208,10 @@ export default function Configuracion() {
         </div>
 
         <div className='grid grid-cols-1 sm:grid-cols-2 gap-8'>
-          {/* Columna izquierda: sliders */}
+          {/* ── Columna izquierda: sliders ── */}
           <div className='flex flex-col gap-5'>
             <p className='text-gray-500 text-xs uppercase tracking-wider font-medium'>Sensibilidad</p>
 
-            {/* RSI */}
             <Slider
               label='Umbral RSI sobreventa'
               valor={umbraRsi}
@@ -270,11 +269,11 @@ export default function Configuracion() {
             </div>
           </div>
 
-          {/* Columna derecha: toggles de señales */}
+          {/* ── Columna derecha: toggles de señales ── */}
           <div className='flex flex-col gap-4'>
             <p className='text-gray-500 text-xs uppercase tracking-wider font-medium'>Tipos de señal activos</p>
 
-            {/* RSI siempre activo — no se puede desactivar */}
+            {/* RSI siempre activo */}
             <div className='flex items-start gap-3 opacity-50'>
               <div className='w-11 h-6 rounded-full bg-cyan-600 relative shrink-0 mt-0.5'>
                 <span className='absolute top-0.5 translate-x-5 w-5 h-5 rounded-full bg-white shadow' />
@@ -306,17 +305,30 @@ export default function Configuracion() {
               descripcion='Avisa cuando el volumen supera 2× la media de 20 días'
             />
 
-            {/* Nota informativa */}
+            {/* ── Sprint 25: Alertas de noticias ── */}
+            {/* Separador visual para distinguir las noticias de las señales técnicas */}
+            <div className='border-t border-gray-800 pt-3'>
+              <p className='text-gray-500 text-xs uppercase tracking-wider font-medium mb-3'>Noticias</p>
+
+              <Toggle
+                valor={config.alertasNoticias ?? true}
+                onChange={v => ok('alertasNoticias', v)}
+                label='Noticias relevantes por ticker'
+                descripcion='Filtra noticias de Google News sobre tus tickers del radar y las manda por Telegram. Anti-spam: no repite noticias ya enviadas.'
+              />
+            </div>
+
+            {/* Nota anti-spam */}
             <div className='bg-gray-800/50 rounded-lg p-3 text-xs text-gray-500 mt-1'>
               <p className='font-medium text-gray-400 mb-1'>ℹ️ Anti-spam automático</p>
-              Cada señal solo se envía una vez por ciclo. Si el RSI lleva días en sobreventa no recibirás una alerta cada 30 minutos — solo cuando
-              entre y cuando salga de la zona.
+              Las señales técnicas solo se envían cuando cambia el estado. Las noticias solo se envían una vez por titular, aunque el script se
+              ejecute cada 30 minutos.
             </div>
           </div>
         </div>
       </div>
 
-      {/* Confirmación */}
+      {/* Confirmación guardado */}
       {guardado && (
         <div className='bg-green-900/30 border border-green-800 rounded-xl px-4 py-3'>
           <p className='text-green-400 text-sm font-medium'>✓ Cambios guardados correctamente</p>

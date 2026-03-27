@@ -11,7 +11,8 @@ export const COLECCIONES = {
   DCA: 'dca',
   CONFIG: 'config',
   MOVIMIENTOS: 'movimientos',
-  RADAR: 'radar'
+  RADAR: 'radar',
+  DIVIDENDOS: 'dividendos'
 }
 
 // ── Cuentas disponibles ───────────────────────────────────────────────────────
