@@ -98,9 +98,11 @@ export default function Dashboard() {
 
   const pnlRealizado = cerradas.reduce((s, o) => s + (o.pnlEuros || 0), 0)
   const pnlVivo = abiertas.reduce((s, o) => s + (o.pnlVivo || 0), 0)
-  const saldoRealizado = totalMovimientos + pnlRealizado
-  const saldoActual = saldoRealizado + pnlVivo
-  const riesgo1pct = saldoRealizado * 0.01
+
+  // totalMovimientos ya incluye el P&L de operaciones cerradas desde useMovimientos.
+  // Solo sumamos el P&L vivo (posiciones aún abiertas) para el saldo en tiempo real.
+  const saldoActual = totalMovimientos + pnlVivo
+  const riesgo3pct = totalMovimientos * 0.03
   const ganadas = cerradas.filter(o => (o.pnlEuros || 0) > 0).length
   const winRate = cerradas.length > 0 ? (ganadas / cerradas.length) * 100 : 0
 
@@ -177,8 +179,8 @@ export default function Dashboard() {
           </div>
           <Tarjeta
             titulo='Riesgo por operación'
-            valor={ocultar(fmt(riesgo1pct))}
-            subtitulo='1% del saldo Trading'
+            valor={ocultar(fmt(riesgo3pct))}
+            subtitulo='3% del saldo Trading'
             color='text-yellow-400'
           />
         </div>

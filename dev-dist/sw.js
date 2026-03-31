@@ -82,7 +82,7 @@ define(['./workbox-c5fd805d'], (function (workbox) { 'use strict';
     "revision": "824709e90c46e80314baf5023de31a1f"
   }, {
     "url": "/trading-dashboard/index.html",
-    "revision": "0.4246tsl5r7c"
+    "revision": "0.62iam5jvmog"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/trading-dashboard/index.html"), {
