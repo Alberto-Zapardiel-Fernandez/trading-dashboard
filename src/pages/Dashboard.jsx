@@ -80,7 +80,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!usuario) return
     const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.DCA), snap =>
-      setAportacionesDca(snap.docs.map(d => ({ id: d.id, ...d.data() })).map(a => ({ ...a, ticker: a.ticker || 'VUAA.DE' })))
+      setAportacionesDca(snap.docs.map(d => ({ id: d.id, ...d.data() })).map(a => ({ ...a, ticker: a.ticker || 'VUSA.DE' })))
     )
     return unsub
   }, [usuario])

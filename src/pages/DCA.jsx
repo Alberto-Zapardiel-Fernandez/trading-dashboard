@@ -460,8 +460,8 @@ export default function DCA() {
     const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.DCA), snap => {
       const data = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        // Retrocompatibilidad: aportaciones sin ticker → VUAA.DE
-        .map(a => ({ ...a, ticker: a.ticker || 'VUAA.DE', nombre: a.nombre || 'VUAA' }))
+        // Retrocompatibilidad: aportaciones sin ticker → VUSA.DE
+        .map(a => ({ ...a, ticker: a.ticker || 'VUSA.DE', nombre: a.nombre || 'VUSA' }))
         .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
       setAportaciones(data)
     })
