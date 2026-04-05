@@ -3,8 +3,8 @@
 //
 // MODELO DE DATOS en Firestore (users/{uid}/dividendos/{id}):
 //   fecha           string    'YYYY-MM-DD' — fecha de cobro del dividendo
-//   ticker          string    Símbolo Yahoo Finance, ej: 'VUSA.DE'
-//   nombre          string    Nombre corto, ej: 'VUSA'
+//   ticker          string    Símbolo Yahoo Finance, ej: 'VUAA.DE'
+//   nombre          string    Nombre corto, ej: 'VUAA'
 //   importe         number    Euros cobrados en total
 //   participaciones number    Participaciones que se tenían al cobrar (para calcular €/acción)
 //   notas           string    Opcional
@@ -117,7 +117,7 @@ export function useDividendos() {
 
   // ── Resumen de dividendos agrupado por ticker ─────────────────────────────
   //
-  // Devuelve un objeto { 'VUSA.DE': { total, cobros, nombre }, ... }
+  // Devuelve un objeto { 'VUAA.DE': { total, cobros, nombre }, ... }
   // Usado en DCA.jsx para mostrar el yield en cada tarjeta de ticker
   const resumenPorTicker = useMemo(() => {
     const mapa = {}

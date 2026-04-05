@@ -10,16 +10,16 @@
 //
 // MODELO DE DATOS en Firestore (users/{uid}/dca/{id}):
 //   fecha          string   'YYYY-MM-DD'
-//   ticker         string   Símbolo Yahoo Finance (ej: 'VUSA.DE')
-//   nombre         string   Nombre corto para mostrar (ej: 'VUSA')
+//   ticker         string   Símbolo Yahoo Finance (ej: 'VUAA.DE')
+//   nombre         string   Nombre corto para mostrar (ej: 'VUAA')
 //   invertido      number   Importe en euros pagado
 //   precioCompra   number   Precio por participación en el momento de compra
 //   participaciones number  invertido / precioCompra
 //   fechaRegistro  timestamp
 //
 // RETROCOMPATIBILIDAD:
-//   Las aportaciones antiguas sin campo 'ticker' se asumen como 'VUSA.DE'
-//   y nombre 'VUSA'. No hay que migrar nada en Firestore.
+//   Las aportaciones antiguas sin campo 'ticker' se asumen como 'VUAA.DE'
+//   y nombre 'VUAA'. No hay que migrar nada en Firestore.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useMemo } from 'react'
@@ -34,12 +34,10 @@ import { useDividendos } from '../hooks/useDividendos'
 // ── Tickers predefinidos para sugerencias rápidas ─────────────────────────────
 // El usuario puede escribir cualquier otro ticker de Yahoo Finance libremente
 const SUGERENCIAS_TICKER = [
+  { ticker: 'VUAA.DE', nombre: 'VUAA' },
   { ticker: 'VUSA.DE', nombre: 'VUSA' },
   { ticker: 'VGWD.DE', nombre: 'VGWD' },
-  { ticker: 'ITX.MC', nombre: 'Inditex' },
-  { ticker: 'BBVA.MC', nombre: 'BBVA' },
-  { ticker: 'REP.MC', nombre: 'Repsol' },
-  { ticker: 'TEF.MC', nombre: 'Telefónica' }
+  { ticker: 'ITX.MC', nombre: 'Inditex' }
 ]
 
 // ── Utilidades de formato ─────────────────────────────────────────────────────
@@ -450,8 +448,8 @@ export default function DCA() {
   // Estado del formulario nueva aportación
   const [form, setForm] = useState({
     fecha: new Date().toISOString().split('T')[0],
-    ticker: 'VUSA.DE',
-    nombre: 'VUSA',
+    ticker: 'VUAA.DE',
+    nombre: 'VUAA',
     invertido: '',
     precioCompra: ''
   })
@@ -462,8 +460,8 @@ export default function DCA() {
     const unsub = onSnapshot(collection(db, 'users', usuario.uid, COLECCIONES.DCA), snap => {
       const data = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        // Retrocompatibilidad: aportaciones sin ticker → VUSA.DE
-        .map(a => ({ ...a, ticker: a.ticker || 'VUSA.DE', nombre: a.nombre || 'VUSA' }))
+        // Retrocompatibilidad: aportaciones sin ticker → VUAA.DE
+        .map(a => ({ ...a, ticker: a.ticker || 'VUAA.DE', nombre: a.nombre || 'VUAA' }))
         .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
       setAportaciones(data)
     })
@@ -625,7 +623,7 @@ export default function DCA() {
             <input
               value={form.ticker}
               onChange={e => setForm(f => ({ ...f, ticker: e.target.value.toUpperCase() }))}
-              placeholder='VUSA.DE'
+              placeholder='VUAA.DE'
               className={inputBase}
             />
           </div>
@@ -636,7 +634,7 @@ export default function DCA() {
             <input
               value={form.nombre}
               onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-              placeholder='VUSA'
+              placeholder='VUAA'
               className={inputBase}
             />
           </div>

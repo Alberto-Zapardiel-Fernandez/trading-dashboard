@@ -251,7 +251,7 @@ export default function Explorador() {
         <div className='flex gap-2'>
           <input
             type='text'
-            placeholder='Ticker o empresa (ej: Santander, Apple, VUSA…)'
+            placeholder='Ticker o empresa (ej: Santander, Apple, VUAA)'
             value={input}
             onChange={e => {
               setInput(e.target.value)
@@ -326,7 +326,7 @@ export default function Explorador() {
       {!ficha && !cargandoFicha && !error && (
         <div className='bg-gray-900 border border-gray-800 rounded-xl p-12 text-center'>
           <p className='text-gray-600 text-lg'>Busca un activo para ver su ficha</p>
-          <p className='text-gray-700 text-sm mt-1'>Ejemplos: SAN.MC · AAPL · VUSA.DE · ^GSPC · BTC-USD</p>
+          <p className='text-gray-700 text-sm mt-1'>Ejemplos: SAN.MC · AAPL · VUAA.DE · ^GSPC · BTC-USD</p>
         </div>
       )}
     </div>
