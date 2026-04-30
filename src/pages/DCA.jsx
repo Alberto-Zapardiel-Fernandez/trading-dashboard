@@ -35,6 +35,7 @@ import { useDividendos } from '../hooks/useDividendos'
 // El usuario puede escribir cualquier otro ticker de Yahoo Finance libremente
 const SUGERENCIAS_TICKER = [
   { ticker: 'VUAA.DE', nombre: 'VUAA' },
+  { ticker: 'VFEA.DE', nombre: 'VFEA' },
   { ticker: 'VUSA.DE', nombre: 'VUSA' },
   { ticker: 'VGWD.DE', nombre: 'VGWD' },
   { ticker: 'ITX.MC', nombre: 'Inditex' }
