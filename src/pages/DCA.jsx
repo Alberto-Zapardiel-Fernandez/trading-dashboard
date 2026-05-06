@@ -31,7 +31,7 @@ import { usePreciosVivos } from '../hooks/usePreciosVivos'
 import { useModoPrivado } from '../context/ModoPrivadoContext'
 import { useDividendos } from '../hooks/useDividendos'
 
-// ── Tickers predefinidos para sugerencias rápidas ─────────────────────────────
+// ── Tickers predefinidos para sugerencias rápidas y añadir DCAS ─────────────────────────────
 // El usuario puede escribir cualquier otro ticker de Yahoo Finance libremente
 const SUGERENCIAS_TICKER = [
   { ticker: 'VUAA.DE', nombre: 'VUAA' },
