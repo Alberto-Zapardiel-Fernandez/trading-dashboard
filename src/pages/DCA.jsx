@@ -36,6 +36,8 @@ import { useDividendos } from '../hooks/useDividendos'
 const SUGERENCIAS_TICKER = [
   { ticker: 'VUAA.DE', nombre: 'VUAA' },
   { ticker: 'VFEA.DE', nombre: 'VFEA' },
+  { ticker: 'EGLN.UK', nombre: 'EGLN' },
+  { ticker: 'IB1T.DE', nombre: 'IB1T' },
   { ticker: 'DFNC.DE', nombre: 'DFNC' },
   { ticker: 'LI7U.DE', nombre: 'LI7U' },
   { ticker: 'WNUC.DE', nombre: 'WNUC' }
