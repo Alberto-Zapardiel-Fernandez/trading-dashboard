@@ -14,9 +14,13 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
 
       - name: Install and Build
+        # La URL del Worker no es secreta, pero no se hardcodea: se lee de
+        # Settings → Secrets and variables → Actions → pestaña "Variables"
+        env:
+          VITE_YAHOO_PROXY_URL: ${{ vars.VITE_YAHOO_PROXY_URL }}
         run: |
           npm install
           npm run build

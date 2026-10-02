@@ -1,28 +1,74 @@
 // src/services/yahooFinance.js
+// ─────────────────────────────────────────────────────────────────────────────
+// Cliente de Yahoo Finance.
+// Ya NO usa proxies públicos: llama a nuestro propio Cloudflare Worker
+// (ver worker/yahoo-proxy.js). La URL se define en .env.local:
+//   VITE_YAHOO_PROXY_URL=https://yahoo-proxy.TU-USUARIO.workers.dev
+//
+// Exports (los mismos que antes, el resto de la app no cambia):
+//   obtenerPrecio, obtenerEurUsd, obtenerPrecios, obtenerVelas, buscarTickers
+// ─────────────────────────────────────────────────────────────────────────────
 
-const CORS_PROXY = 'https://corsproxy.io/?url='
-const YAHOO_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart/'
+// URL base del Worker, sin barra final
+const PROXY = (import.meta.env.VITE_YAHOO_PROXY_URL || '').replace(/\/$/, '')
 
-export async function obtenerPrecio(ticker) {
+if (!PROXY) {
+  console.error('[Yahoo] Falta VITE_YAHOO_PROXY_URL en .env.local (o en las variables del repo para el deploy)')
+}
+
+// ── Caché en memoria ─────────────────────────────────────────────────────────
+// Evita repetir la misma petición varias veces seguidas (p. ej. al cambiar de
+// página). Guarda también las peticiones EN CURSO para no duplicarlas.
+const cache = new Map() // clave → { valor, expira }
+const enCurso = new Map() // clave → Promise
+
+async function conCache(clave, ttlMs, funcion) {
+  const hit = cache.get(clave)
+  if (hit && hit.expira > Date.now()) return hit.valor
+  if (enCurso.has(clave)) return enCurso.get(clave)
+
+  const promesa = funcion()
+    .then(valor => {
+      // Solo cacheamos resultados válidos (null = fallo, que se reintente)
+      if (valor !== null && valor !== undefined) {
+        cache.set(clave, { valor, expira: Date.now() + ttlMs })
+      }
+      return valor
+    })
+    .finally(() => enCurso.delete(clave))
+
+  enCurso.set(clave, promesa)
+  return promesa
+}
+
+// Llama al Worker y devuelve el JSON (o null si falla)
+async function pedirJson(ruta) {
+  if (!PROXY) return null
   try {
-    const yahooUrl = `${YAHOO_BASE}${ticker}?interval=1m&range=1d`
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(yahooUrl)}`
-    const respuesta = await fetch(proxyUrl)
+    const respuesta = await fetch(`${PROXY}${ruta}`)
     if (!respuesta.ok) {
-      console.warn(`[Yahoo] Error HTTP ${respuesta.status} para ${ticker}`)
+      console.warn(`[Yahoo] HTTP ${respuesta.status} en ${ruta}`)
       return null
     }
-    const yahoo = await respuesta.json()
+    return await respuesta.json()
+  } catch (error) {
+    console.error(`[Yahoo] Error de red en ${ruta}:`, error)
+    return null
+  }
+}
+
+// ── Precio actual ────────────────────────────────────────────────────────────
+
+export async function obtenerPrecio(ticker) {
+  return conCache(`precio:${ticker}`, 30_000, async () => {
+    const yahoo = await pedirJson(`/chart/${encodeURIComponent(ticker)}?interval=1m&range=1d`)
     const precio = yahoo?.chart?.result?.[0]?.meta?.regularMarketPrice
     if (precio === undefined) {
       console.warn(`[Yahoo] No se encontró precio para ${ticker}`)
       return null
     }
     return precio
-  } catch (error) {
-    console.error(`[Yahoo] Error obteniendo precio de ${ticker}:`, error)
-    return null
-  }
+  })
 }
 
 export async function obtenerEurUsd() {
@@ -38,9 +84,7 @@ export async function obtenerPrecios(tickers) {
   }, {})
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SPRINT 3: Datos OHLCV para gráfica de velas
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Velas OHLCV para la gráfica ──────────────────────────────────────────────
 
 const TEMPORALIDADES = {
   '1m': { interval: '1m', range: '5d' },
@@ -53,20 +97,15 @@ const TEMPORALIDADES = {
 }
 
 export async function obtenerVelas(ticker, temporalidad = '1D') {
-  try {
-    const { interval, range } = TEMPORALIDADES[temporalidad] ?? TEMPORALIDADES['1D']
-    const yahooUrl = `${YAHOO_BASE}${ticker}?interval=${interval}&range=${range}`
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(yahooUrl)}`
+  const { interval, range } = TEMPORALIDADES[temporalidad] ?? TEMPORALIDADES['1D']
 
-    const respuesta = await fetch(proxyUrl)
-    if (!respuesta.ok) {
-      console.warn(`[Yahoo] Error HTTP ${respuesta.status} para ${ticker}`)
-      return null
-    }
+  // Velas intradiarias: caché corta (1 min). Diarias o mayores: 5 min.
+  const ttl = interval.endsWith('m') ? 60_000 : 300_000
 
-    const yahoo = await respuesta.json()
+  return conCache(`velas:${ticker}:${interval}:${range}`, ttl, async () => {
+    const yahoo = await pedirJson(`/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`)
     const resultado = yahoo?.chart?.result?.[0]
-    if (!resultado) {
+    if (!resultado?.timestamp) {
       console.warn(`[Yahoo] Sin datos OHLCV para ${ticker}`)
       return null
     }
@@ -74,7 +113,7 @@ export async function obtenerVelas(ticker, temporalidad = '1D') {
     const timestamps = resultado.timestamp
     const { open, high, low, close, volume } = resultado.indicators.quote[0]
 
-    // 1. Construimos las velas filtrando las que tienen datos nulos
+    // 1. Construimos las velas descartando las que tienen datos nulos
     const velas = timestamps
       .map((t, i) => ({
         time: t,
@@ -84,55 +123,64 @@ export async function obtenerVelas(ticker, temporalidad = '1D') {
         close: close[i],
         volume: volume[i] ?? 0
       }))
-      .filter(
-        v =>
-          v.open !== null &&
-          v.open !== undefined &&
-          v.close !== null &&
-          v.close !== undefined &&
-          v.high !== null &&
-          v.high !== undefined &&
-          v.low !== null &&
-          v.low !== undefined
-      )
+      .filter(v => v.open != null && v.high != null && v.low != null && v.close != null)
 
-    // 2. Ordenamos por timestamp ascendente (lightweight-charts lo requiere)
+    // 2. lightweight-charts exige orden ascendente por timestamp
     velas.sort((a, b) => a.time - b.time)
 
-    // 3. Eliminamos timestamps duplicados (Yahoo los devuelve a veces en intradiario)
-    const velasSinDuplicados = velas.filter((v, i, arr) => i === 0 || v.time !== arr[i - 1].time)
-    // Eliminamos la última vela si tiene volumen 0 (vela incompleta en intradiario)
-    if (velasSinDuplicados.length > 1 && velasSinDuplicados[velasSinDuplicados.length - 1].volume === 0) {
-      velasSinDuplicados.pop()
+    // 3. Quitamos timestamps duplicados (Yahoo los repite a veces en intradiario)
+    const sinDuplicados = velas.filter((v, i, arr) => i === 0 || v.time !== arr[i - 1].time)
+
+    // 4. Quitamos la última vela si tiene volumen 0 (vela incompleta)
+    if (sinDuplicados.length > 1 && sinDuplicados[sinDuplicados.length - 1].volume === 0) {
+      sinDuplicados.pop()
     }
-    return velasSinDuplicados
-  } catch (error) {
-    console.error(`[Yahoo] Error obteniendo velas de ${ticker}:`, error)
-    return null
-  }
+    return sinDuplicados
+  })
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SPRINT 3: Buscador inteligente de tickers
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Buscador de tickers ──────────────────────────────────────────────────────
+
+// Lista local de emergencia: si el Worker falla, el buscador sigue dando
+// sugerencias de los tickers más habituales en vez de quedarse vacío.
+const TICKERS_LOCALES = [
+  { symbol: 'SAN.MC', nombre: 'Banco Santander', exchange: 'MCE' },
+  { symbol: 'BBVA.MC', nombre: 'BBVA', exchange: 'MCE' },
+  { symbol: 'ITX.MC', nombre: 'Inditex', exchange: 'MCE' },
+  { symbol: 'IBE.MC', nombre: 'Iberdrola', exchange: 'MCE' },
+  { symbol: 'TEF.MC', nombre: 'Telefónica', exchange: 'MCE' },
+  { symbol: 'REP.MC', nombre: 'Repsol', exchange: 'MCE' },
+  { symbol: 'PEP', nombre: 'PepsiCo', exchange: 'NMS' },
+  { symbol: 'AAPL', nombre: 'Apple', exchange: 'NMS' },
+  { symbol: 'MSFT', nombre: 'Microsoft', exchange: 'NMS' },
+  { symbol: 'NVDA', nombre: 'NVIDIA', exchange: 'NMS' },
+  { symbol: 'TSLA', nombre: 'Tesla', exchange: 'NMS' },
+  { symbol: 'AMZN', nombre: 'Amazon', exchange: 'NMS' },
+  { symbol: 'VUAA.DE', nombre: 'Vanguard S&P 500 UCITS ETF', exchange: 'GER' },
+  { symbol: 'VUSA.DE', nombre: 'Vanguard S&P 500 UCITS ETF (Dist)', exchange: 'GER' },
+  { symbol: 'SPY', nombre: 'SPDR S&P 500 ETF', exchange: 'PCX' }
+]
+
+function buscarEnLocal(query) {
+  const q = query.toLowerCase()
+  return TICKERS_LOCALES.filter(t => t.symbol.toLowerCase().includes(q) || t.nombre.toLowerCase().includes(q)).slice(0, 8)
+}
 
 export async function buscarTickers(query) {
   if (!query || query.length < 2) return []
-  try {
-    const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0&listsCount=0`
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(yahooUrl)}`
-    const respuesta = await fetch(proxyUrl)
-    if (!respuesta.ok) return []
-    const datos = await respuesta.json()
-    const quotes = datos?.quotes || []
-    return quotes
+
+  const resultado = await conCache(`busqueda:${query.toLowerCase()}`, 300_000, async () => {
+    const datos = await pedirJson(`/search?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0&listsCount=0`)
+    if (!datos) return null // fallo → usaremos la lista local
+    return (datos.quotes || [])
       .filter(q => q.symbol && ['EQUITY', 'ETF', 'MUTUALFUND'].includes(q.quoteType))
       .map(q => ({
         symbol: q.symbol,
         nombre: q.shortname || q.longname || q.symbol,
         exchange: q.exchange || ''
       }))
-  } catch {
-    return []
-  }
+  })
+
+  // Si el Worker falló (null), caemos a la lista local
+  return resultado ?? buscarEnLocal(query)
 }
